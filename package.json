@@ -10,8 +10,7 @@
     "dist/",
     "presets/",
     "README.md",
-    "AGENTS.md",
-    "LICENSE"
+    "AGENTS.md"
   ],
   "engines": {
     "node": ">=22"
