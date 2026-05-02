@@ -20,10 +20,18 @@ jobs:
           registry-url: https://registry.npmjs.org/
           cache: npm
       # Trusted publishing requires npm CLI >= 11.5.1. The bundled npm
-      # in Node 22 is older than that, so we self-upgrade. `--force`
-      # avoids a known race condition where npm fails mid-upgrade with
-      # "Cannot find module 'promise-retry'".
-      - run: npm install -g npm@latest --force
+      # in Node 22 is older than that. Self-upgrading via
+      # `npm install -g npm` is unreliable on hosted runners — npm
+      # modifies its own running process and crashes mid-install with
+      # "Cannot find module 'promise-retry'", with or without --force.
+      # Workaround: install npm into a fresh prefix, then prepend it
+      # to PATH so subsequent steps pick up the new binary.
+      - name: Install fresh npm
+        run: |
+          mkdir -p "$RUNNER_TEMP/npm-latest"
+          npm install --prefix "$RUNNER_TEMP/npm-latest" npm@latest
+          echo "$RUNNER_TEMP/npm-latest/node_modules/.bin" >> "$GITHUB_PATH"
+      - run: npm --version
       - run: npm ci
       - run: npm run build
       - run: npm test
