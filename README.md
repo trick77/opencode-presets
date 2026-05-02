@@ -31,35 +31,29 @@ Every change shows a diff and asks before touching anything. A
 backup is written to `~/.cache/opencode-presets/backups/` before
 each write — no auto-pruning, so they pile up.
 
-## Common recipes
+## Built-in presets
 
-Java with lombok:
+| Preset | Mode | Category | Description |
+| --- | --- | --- | --- |
+| `lombok` | replace | LSP | Makes jdtls lombok-aware via `-javaagent` flag |
+| `jdtls-clean-workspace` | replace | LSP | Stops jdtls from writing `.project`/`.classpath`/etc. into your project root |
+| `mcp-remote-add` | replace | MCP | Add a remote MCP server with bearer-token auth (prompts for id, URL, token) |
+| `mcp-remote-add-noauth` | replace | MCP | Add a remote MCP server without auth (prompts for id, URL) |
+| `permissions-git-safe` | merge | Permissions | Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
+| `permissions-shell-safe` | merge | Permissions | Harmless shell commands (ls, cat, grep, rg, jq, yq, etc.) |
+| `permissions-build-tools` | merge | Permissions | Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |
+| `permissions-container-info` | merge | Permissions | Read-only docker, podman, oc inspection commands |
+| `permissions-toolchain-info` | merge | Permissions | Version probes for common dev toolchains |
+
+Install multiple at once:
 
 ```sh
 opencode-presets install lombok jdtls-clean-workspace
+opencode-presets install permissions-git-safe permissions-shell-safe
 ```
 
-Stop opencode prompting for read-only git and shell commands:
-
-```sh
-opencode-presets install permissions-git-safe \
-                        permissions-shell-safe
-```
-
-Wipe whatever permission state you have, install a clean baseline:
-
-```sh
-opencode-presets install --reset permission permissions-git-safe
-```
-
-Add a remote MCP server (prompts for name, URL, token):
-
-```sh
-opencode-presets install mcp-remote-add
-```
-
-To remove an MCP server installed that way, use `reset` since the
-path was set from a prompt:
+Presets whose path uses a prompt (like `mcp-remote-add`) can't be
+removed with `remove` — use `reset` instead:
 
 ```sh
 opencode-presets reset mcp.openrag-tom
