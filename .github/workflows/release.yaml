@@ -19,8 +19,11 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org/
           cache: npm
-      # Trusted publishing requires npm CLI >= 11.5.1.
-      - run: npm install -g npm@latest
+      # Trusted publishing requires npm CLI >= 11.5.1. The bundled npm
+      # in Node 22 is older than that, so we self-upgrade. `--force`
+      # avoids a known race condition where npm fails mid-upgrade with
+      # "Cannot find module 'promise-retry'".
+      - run: npm install -g npm@latest --force
       - run: npm ci
       - run: npm run build
       - run: npm test
