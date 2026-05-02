@@ -1,0 +1,45 @@
+{
+  "name": "opencode-presets",
+  "version": "0.1.0",
+  "description": "Interactive CLI that patches opencode.json with curated config presets — LSP, MCP, permissions.",
+  "type": "module",
+  "bin": {
+    "opencode-presets": "./dist/bin/opencode-presets.js"
+  },
+  "files": [
+    "dist/",
+    "presets/",
+    "README.md",
+    "AGENTS.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "test": "tsc && node --test dist/test/*.test.js",
+    "coverage": "tsc && node --test --experimental-test-coverage dist/test/*.test.js",
+    "prepare": "tsc",
+    "prepublishOnly": "tsc"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "chalk": "5.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0",
+    "typescript": "6.0.3"
+  },
+  "license": "MIT",
+  "keywords": [
+    "opencode",
+    "presets",
+    "lsp",
+    "mcp",
+    "config",
+    "lombok",
+    "jdtls"
+  ]
+}
