@@ -1,10 +1,18 @@
 {
   "name": "opencode-presets",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Interactive CLI that patches opencode.json with curated config presets — LSP, MCP, permissions.",
   "type": "module",
   "bin": {
-    "opencode-presets": "./dist/bin/opencode-presets.js"
+    "opencode-presets": "dist/bin/opencode-presets.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/trick77/opencode-presets.git"
+  },
+  "homepage": "https://github.com/trick77/opencode-presets#readme",
+  "bugs": {
+    "url": "https://github.com/trick77/opencode-presets/issues"
   },
   "files": [
     "dist/",
