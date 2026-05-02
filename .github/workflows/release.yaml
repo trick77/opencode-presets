@@ -16,22 +16,9 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org/
           cache: npm
-      # Trusted publishing requires npm CLI >= 11.5.1. The bundled npm
-      # in Node 22 is older than that. Self-upgrading via
-      # `npm install -g npm` is unreliable on hosted runners — npm
-      # modifies its own running process and crashes mid-install with
-      # "Cannot find module 'promise-retry'", with or without --force.
-      # Workaround: install npm into a fresh prefix, then prepend it
-      # to PATH so subsequent steps pick up the new binary.
-      - name: Install fresh npm
-        run: |
-          mkdir -p "$RUNNER_TEMP/npm-latest"
-          npm install --prefix "$RUNNER_TEMP/npm-latest" npm@latest
-          echo "$RUNNER_TEMP/npm-latest/node_modules/.bin" >> "$GITHUB_PATH"
-      - run: npm --version
       - run: npm ci
       - run: npm run build
       - run: npm test
@@ -43,9 +30,10 @@ jobs:
             echo "tag $tag does not match package.json $pkg" >&2
             exit 1
           fi
-      # No NODE_AUTH_TOKEN. Authentication is via OIDC; provenance is
-      # automatic when publishing under a configured trusted publisher.
-      - run: npm publish --access public
+      # OIDC trusted publishing requires npm >= 11.5.1. Invoke via npx
+      # so we always get a recent enough CLI without mutating the
+      # global npm install on the runner.
+      - run: npx -y npm@latest publish --access public
       - uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
