@@ -1,7 +1,7 @@
 # opencode-presets
 
 Small CLI that patches `~/.config/opencode/opencode.json` from
-prepared modules. Use it to add LSP overrides, MCP servers, and
+prepared presets. Use it to add LSP overrides, MCP servers, and
 permission rules without hand-editing JSON.
 
 ## Install
@@ -33,17 +33,17 @@ each write — no auto-pruning, so they pile up.
 
 ## Built-in presets
 
-| Preset | Mode | Category | Description |
+| Preset | Category | Mode | Description |
 | --- | --- | --- | --- |
-| `lombok` | replace | LSP | Makes jdtls lombok-aware via `-javaagent` flag |
-| `jdtls-clean-workspace` | replace | LSP | Stops jdtls from writing `.project`/`.classpath`/etc. into your project root |
-| `mcp-remote-add` | replace | MCP | Add a remote MCP server with bearer-token auth (prompts for id, URL, token) |
-| `mcp-remote-add-noauth` | replace | MCP | Add a remote MCP server without auth (prompts for id, URL) |
-| `permissions-git-safe` | merge | Permissions | Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
-| `permissions-shell-safe` | merge | Permissions | Harmless shell commands (ls, cat, grep, rg, jq, yq, etc.) |
-| `permissions-build-tools` | merge | Permissions | Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |
-| `permissions-container-info` | merge | Permissions | Read-only docker, podman, oc inspection commands |
-| `permissions-toolchain-info` | merge | Permissions | Version probes for common dev toolchains |
+| `lombok` | LSP | replace | Makes jdtls lombok-aware via `-javaagent` flag |
+| `jdtls-clean-workspace` | LSP | replace | Stops jdtls from writing `.project`/`.classpath`/etc. into your project root |
+| `mcp-remote-add` | MCP | replace | Add a remote MCP server with bearer-token auth (prompts for id, URL, token) |
+| `mcp-remote-add-noauth` | MCP | replace | Add a remote MCP server without auth (prompts for id, URL) |
+| `permissions-git-safe` | Permissions | merge | Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
+| `permissions-shell-safe` | Permissions | merge | Low-risk shell commands (ls, cat, grep, rg, jq, yq, etc.) |
+| `permissions-build-tools` | Permissions | merge | Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |
+| `permissions-container-info` | Permissions | merge | Read-only docker, podman, oc inspection commands |
+| `permissions-toolchain-info` | Permissions | merge | Version probes for common dev toolchains |
 
 Install multiple at once:
 
@@ -61,9 +61,9 @@ opencode-presets reset mcp.openrag-tom
 
 ## Modes
 
-- `replace` — the module owns the value at `@path`. Re-installing
+- `replace` — the preset owns the value at `@path`. Re-installing
   overwrites whatever's there.
-- `merge` — the module's keys are added; existing keys (yours or
+- `merge` — the preset's keys are added; existing keys (yours or
   someone else's) are never overwritten. Use this for permission
   rules so user edits stick around.
 
@@ -116,7 +116,7 @@ Plain JSONC with a header. Drop into one of the dirs above, or pass
 an absolute path.
 
 ```jsonc
-// @name: my-module
+// @name: my-preset
 // @description: one paragraph of what this fixes / sets up.
 // @author: you <you@example.com>
 // @version: 1.0.0
