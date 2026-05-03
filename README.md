@@ -16,16 +16,16 @@ Needs Node 22+.
 
 ```sh
 opencode-presets list                              # what's available
-opencode-presets install lombok                   # apply one preset by name
-opencode-presets install lombok permissions-git-safe
-opencode-presets remove lombok                    # undo a preset
+opencode-presets install jdtls-lombok             # apply one preset by name
+opencode-presets install jdtls-lombok permissions-git-safe
+opencode-presets remove jdtls-lombok              # undo a preset
 opencode-presets install --reset permission ./presets/foo.conf  # wipe then install
 opencode-presets reset permission                 # wipe a section outright
 ```
 
 Bare names are resolved through the preset search path (see "Where
 presets are found" below). You can always pass an explicit path
-instead, e.g. `install ./presets/lombok.conf`.
+instead, e.g. `install ./presets/jdtls-lombok.conf`.
 
 Every change shows a diff and asks before touching anything. A
 backup is written to `~/.cache/opencode-presets/backups/` before
@@ -35,7 +35,7 @@ each write — no auto-pruning, so they pile up.
 
 | Preset | Category | Mode | Description |
 | --- | --- | --- | --- |
-| `lombok` | LSP | replace | Makes jdtls lombok-aware via `-javaagent` flag |
+| `jdtls-lombok` | LSP | replace | Makes jdtls lombok-aware via `-javaagent` flag |
 | `jdtls-clean-workspace` | LSP | replace | Stops jdtls from writing `.project`/`.classpath`/etc. into your project root |
 | `mcp-remote-add` | MCP | replace | Add a remote MCP server with bearer-token auth (prompts for id, URL, token) |
 | `mcp-remote-add-noauth` | MCP | replace | Add a remote MCP server without auth (prompts for id, URL) |
@@ -48,7 +48,7 @@ each write — no auto-pruning, so they pile up.
 Install multiple at once:
 
 ```sh
-opencode-presets install lombok jdtls-clean-workspace
+opencode-presets install jdtls-lombok jdtls-clean-workspace
 opencode-presets install permissions-git-safe permissions-shell-safe
 ```
 
