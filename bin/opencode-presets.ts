@@ -62,6 +62,11 @@ async function main(): Promise<void> {
     printUsage();
     process.exit(argv.length === 0 ? 1 : 0);
   }
+  if (argv[0] === '-V' || argv[0] === '--version') {
+    const raw = await readFile(resolve(REPO_ROOT, 'package.json'), 'utf8');
+    console.log(`v${(JSON.parse(raw) as { version: string }).version}`);
+    process.exit(0);
+  }
 
   const sub = argv[0];
 
