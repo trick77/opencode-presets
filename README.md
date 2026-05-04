@@ -44,6 +44,7 @@ each write — no auto-pruning, so they pile up.
 | `permissions-build-tools` | Permissions | merge | Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |
 | `permissions-container-info` | Permissions | merge | Read-only docker, podman, oc inspection commands |
 | `permissions-toolchain-info` | Permissions | merge | Version probes for common dev toolchains |
+| `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
 
 Install multiple at once:
 
