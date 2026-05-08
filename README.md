@@ -40,6 +40,7 @@ each write — no auto-pruning, so they pile up.
 | `mcp-remote-add` | MCP | replace | Add a remote MCP server with bearer-token auth (prompts for id, URL, token) |
 | `mcp-remote-add-noauth` | MCP | replace | Add a remote MCP server without auth (prompts for id, URL) |
 | `mcp-intellij` | MCP | replace | Add the JetBrains IDE MCP server (loopback HTTP, default port 64342) |
+| `mcp-vscode` | MCP | replace | Add the VS Code MCP server via the `JuehangQin.vscode-mcp-server` extension (loopback HTTP, default port 3000) |
 | `permissions-git-safe` | Permissions | merge | Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
 | `permissions-shell-safe` | Permissions | merge | Low-risk shell commands (ls, cat, grep, rg, jq, yq, etc.) |
 | `permissions-build-tools` | Permissions | merge | Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |
