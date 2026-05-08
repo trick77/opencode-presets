@@ -39,6 +39,7 @@ each write — no auto-pruning, so they pile up.
 | `jdtls-clean-workspace` | LSP | replace | Stops jdtls from writing `.project`/`.classpath`/etc. into your project root |
 | `mcp-remote-add` | MCP | replace | Add a remote MCP server with bearer-token auth (prompts for id, URL, token) |
 | `mcp-remote-add-noauth` | MCP | replace | Add a remote MCP server without auth (prompts for id, URL) |
+| `mcp-intellij` | MCP | replace | Add the JetBrains IDE MCP server (loopback HTTP, default port 64342) |
 | `permissions-git-safe` | Permissions | merge | Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
 | `permissions-shell-safe` | Permissions | merge | Low-risk shell commands (ls, cat, grep, rg, jq, yq, etc.) |
 | `permissions-build-tools` | Permissions | merge | Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |

@@ -126,6 +126,28 @@ describe('parseConfString — @prompt', () => {
     const src = minimalHeader + '// @prompt: x | bogus\n\n{}';
     assert.throws(() => parseConfString(src), /type must be/);
   });
+
+  test('parses name | type | help | default', () => {
+    const src = minimalHeader + '// @prompt: port | text | server port | 64342\n\n{}';
+    const { meta } = parseConfString(src);
+    assert.deepEqual(meta.prompts[0], { name: 'port', type: 'text', help: 'server port', default: '64342' });
+  });
+
+  test('parses default with empty help', () => {
+    const src = minimalHeader + '// @prompt: port | text |  | 64342\n\n{}';
+    const { meta } = parseConfString(src);
+    assert.deepEqual(meta.prompts[0], { name: 'port', type: 'text', help: '', default: '64342' });
+  });
+
+  test('rejects default on secret', () => {
+    const src = minimalHeader + '// @prompt: token | secret | bearer | hunter2\n\n{}';
+    assert.throws(() => parseConfString(src), /not allowed for type "secret"/);
+  });
+
+  test('rejects more than 4 fields', () => {
+    const src = minimalHeader + '// @prompt: a | text | b | c | d\n\n{}';
+    assert.throws(() => parseConfString(src), /@prompt must be/);
+  });
 });
 
 describe('parseConfString — body and unknowns', () => {
