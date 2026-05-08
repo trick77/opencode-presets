@@ -24,7 +24,10 @@ matter):
 - `@name`, `@description`, `@author`, `@version`, `@path` — required.
 - `@mode` — `replace` (default) | `merge` | `merge-overwrite`.
 - `@fetch: URL -> dest [sha256=hex]` — repeatable.
-- `@prompt: name | type | help` — repeatable; type ∈ `text`/`secret`.
+- `@prompt: name | type | help | default` — repeatable; type ∈
+  `text`/`secret`. Help and default are optional. Default is
+  forbidden when type is `secret`. When the user enters an empty
+  line, the default is used.
 
 Body is JSONC. After parsing it must be valid JSON of the shape the
 leaf at `@path` expects (object/array/scalar all allowed for `replace`;

@@ -93,11 +93,18 @@ export async function runBatch({ resets, confPaths, target, cacheDir, backupDir 
     m.promptValues = {};
     for (const p of m.meta.prompts) {
       const label = '  ' + c.bold(p.name) +
-        (p.help ? c.meta(' (' + p.help + ')') : '') + ': ';
-      const val = p.type === 'secret' ? await promptSecret(label) : await promptText(label);
+        (p.help ? c.meta(' (' + p.help + ')') : '') +
+        (p.default !== undefined ? c.meta(' [default: ' + p.default + ']') : '') +
+        ': ';
+      const raw = p.type === 'secret' ? await promptSecret(label) : await promptText(label);
+      let val = raw;
       if (!val) {
-        console.error(c.err(`error: prompt "${p.name}" cannot be empty`));
-        process.exit(1);
+        if (p.default !== undefined) {
+          val = p.default;
+        } else {
+          console.error(c.err(`error: prompt "${p.name}" cannot be empty`));
+          process.exit(1);
+        }
       }
       if (p.name === 'name' && !ID_RE.test(val)) {
         console.error(c.err(`error: invalid identifier "${val}" — must match ${ID_RE.source}`));

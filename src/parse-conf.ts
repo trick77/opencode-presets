@@ -13,6 +13,7 @@ export interface PromptDirective {
   name: string;
   type: PromptType;
   help: string;
+  default?: string;
 }
 
 export interface ConfMeta {
@@ -124,17 +125,20 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
 
 function parsePrompt(value: string, filePath: string): PromptDirective {
   const parts = value.split('|').map(s => s.trim());
-  if (parts.length < 2 || parts.length > 3) {
-    throw parseError(filePath, 0, `@prompt must be "name | type | help" (help optional), got "${value}"`);
+  if (parts.length < 2 || parts.length > 4) {
+    throw parseError(filePath, 0, `@prompt must be "name | type | help | default" (help and default optional), got "${value}"`);
   }
-  const [name, type, help = ''] = parts;
+  const [name, type, help = '', def] = parts;
   if (!/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(name)) {
     throw parseError(filePath, 0, `@prompt name must be alphanumeric/underscore/hyphen, got "${name}"`);
   }
   if (type !== 'text' && type !== 'secret') {
     throw parseError(filePath, 0, `@prompt type must be "text" or "secret", got "${type}"`);
   }
-  return { name, type, help };
+  if (def !== undefined && type === 'secret') {
+    throw parseError(filePath, 0, `@prompt default value is not allowed for type "secret" (got "${value}")`);
+  }
+  return def !== undefined ? { name, type, help, default: def } : { name, type, help };
 }
 
 function parseFetch(value: string, filePath: string): FetchDirective {
