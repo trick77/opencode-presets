@@ -37,8 +37,8 @@ each write — no auto-pruning, so they pile up.
 | --- | --- | --- | --- |
 | `jdtls-lombok` | LSP | replace | Makes jdtls lombok-aware via `-javaagent` flag |
 | `jdtls-clean-workspace` | LSP | replace | Stops jdtls from writing `.project`/`.classpath`/etc. into your project root |
-| `mcp-remote-add` | MCP | replace | Add a remote MCP server with bearer-token auth (prompts for id, URL, token) |
-| `mcp-remote-add-noauth` | MCP | replace | Add a remote MCP server without auth (prompts for id, URL) |
+| `mcp-http` | MCP | replace | Add an HTTP MCP server (localhost or remote) with one custom header (prompts for id, URL, header name, header value) |
+| `mcp-http-noauth` | MCP | replace | Add an HTTP MCP server (localhost or remote) without auth headers (prompts for id, URL) |
 | `mcp-intellij` | MCP | replace | Add the JetBrains IDE MCP server (loopback HTTP, default port 64342) |
 | `mcp-vscode` | MCP | replace | Add the VS Code MCP server via the `JuehangQin.vscode-mcp-server` extension (loopback HTTP, default port 3000) |
 | `permissions-git-safe` | Permissions | merge | Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
@@ -55,7 +55,7 @@ opencode-presets install jdtls-lombok jdtls-clean-workspace
 opencode-presets install permissions-git-safe permissions-shell-safe
 ```
 
-Presets whose path uses a prompt (like `mcp-remote-add`) can't be
+Presets whose path uses a prompt (like `mcp-http`) can't be
 removed with `remove` — use `reset` instead:
 
 ```sh
