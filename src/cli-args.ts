@@ -28,6 +28,20 @@ export class CliArgsError extends Error {
   }
 }
 
+// Policy check separate from syntax parsing: --set / --set-env target a
+// single preset, so combining them with a multi-preset install is rejected.
+// Returns null if the args are policy-valid, or an error message otherwise.
+export function validateInstallPolicy(parsed: InstallArgs): string | null {
+  if (parsed.setValues.length > 0 && parsed.confPaths.length !== 1) {
+    if (parsed.confPaths.length === 0) {
+      return '--set / --set-env requires a preset to install.';
+    }
+    return '--set / --set-env requires installing exactly one preset; got ' +
+      `${parsed.confPaths.length}. Run the command once per preset, or drop --set.`;
+  }
+  return null;
+}
+
 // args is everything after `install` (so --reset, --set, --set-env, and conf paths).
 // Forms accepted:
 //   --reset <path>            --reset=<path>

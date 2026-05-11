@@ -64,10 +64,12 @@ opencode-presets install mcp-http \
   --set-env headerValue=BITBUCKET_TOKEN
 ```
 
-When installing several modules in one call, scope a value with
-`<preset>.<name>` if the same prompt name appears in more than one
-of them: `--set mcp-http.name=openrag`. Unscoped values across
-ambiguous prompts are rejected with a clear error.
+`--set` / `--set-env` apply to a single preset per invocation — run
+the command once per preset rather than bundling several with shared
+flags. This keeps the wiring obvious ("this `--set` goes to *that*
+preset") and avoids surprise: in a non-TTY shell script, a bundled
+install would happily fill the first preset's prompts and then hang
+on a readline for the next.
 
 ## Built-in presets
 
