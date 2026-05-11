@@ -12,9 +12,10 @@ export OPENCODE_PRESETS_CACHE=/tmp/oc-test/cache
 npm run build && node dist/bin/opencode-presets.js install ./presets/<name>.conf
 ```
 
-For non-interactive runs pipe answers via `printf`/`yes`. The CLI uses
-one shared readline session with a buffered queue; multi-line piped
-input is correct.
+For non-interactive runs prefer `--set NAME=VALUE` (or `--set-env
+NAME=ENV_VAR` for secrets) over piping answers via `printf`/`yes`.
+The interactive readline path still works — the CLI uses one shared
+session with a buffered queue — but `--set` is sturdier in scripts.
 
 ## Conf module format — required headers
 

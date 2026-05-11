@@ -10,6 +10,7 @@ import { backup } from '../src/backup.js';
 import { c, confirm, closeUi } from '../src/ui.js';
 import { listConfs } from '../src/list.js';
 import { runBatch, runRemoveBatch } from '../src/batch.js';
+import { parseInstallArgs, CliArgsError } from '../src/cli-args.js';
 import { validateAgainstSchema } from '../src/validate.js';
 
 const CACHE_DIR = process.env.OPENCODE_PRESETS_CACHE
@@ -87,7 +88,16 @@ async function main(): Promise<void> {
   }
 
   if (sub === 'install') {
-    const { resets, confPaths } = parseInstallArgs(argv.slice(1));
+    let parsed;
+    try { parsed = parseInstallArgs(argv.slice(1)); }
+    catch (e) {
+      if (e instanceof CliArgsError) {
+        console.error(c.err('error: ') + e.message);
+        process.exit(1);
+      }
+      throw e;
+    }
+    const { resets, confPaths, setValues } = parsed;
     if (confPaths.length === 0 && resets.length === 0) {
       printUsage();
       process.exit(1);
@@ -96,6 +106,7 @@ async function main(): Promise<void> {
     await runBatch({
       resets,
       confPaths: resolved,
+      setValues,
       target: TARGET,
       cacheDir: CACHE_DIR,
       backupDir: BACKUP_DIR,
@@ -139,24 +150,6 @@ async function resolveConfArg(arg: string): Promise<string> {
 
 async function fileExists(path: string): Promise<boolean> {
   try { await stat(path); return true; } catch { return false; }
-}
-
-function parseInstallArgs(args: string[]): { resets: string[]; confPaths: string[] } {
-  const resets: string[] = [];
-  const confPaths: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i];
-    if (a === '--reset') {
-      const next = args[++i];
-      if (!next) { printUsage(); process.exit(1); }
-      resets.push(next);
-    } else if (a.startsWith('--reset=')) {
-      resets.push(a.slice('--reset='.length));
-    } else {
-      confPaths.push(a);
-    }
-  }
-  return { resets, confPaths };
 }
 
 async function runResetAll(): Promise<void> {
@@ -300,9 +293,14 @@ async function loadJsonOrNull(path: string): Promise<Record<string, unknown> | n
 function printUsage(): void {
   console.log('Usage:');
   console.log('  opencode-presets list [<dir>] [--long]            list available .conf modules');
-  console.log('  opencode-presets install [--reset <path>]... <conf>...');
+  console.log('  opencode-presets install [--reset <path>]... [--set NAME=VALUE]... <conf>...');
   console.log('                                                   apply one or more modules');
   console.log('                                                   (with optional pre-resets)');
+  console.log('  --set NAME=VALUE         pre-fill a prompt non-interactively. Scope across multiple');
+  console.log('                           modules with --set <preset>.NAME=VALUE. Quote values with');
+  console.log("                           single quotes ('...') if they contain $, !, *, etc.");
+  console.log('  --set-env NAME=ENV_VAR   read the value from $ENV_VAR (recommended for secrets so');
+  console.log('                           tokens never land in shell history or process listings)');
   console.log('  opencode-presets remove <conf>...                remove one or more installed presets');
   console.log('  opencode-presets reset [<path>]                  wipe a path, or wipe everything');
   console.log('                                                   to the minimal baseline if no path');
