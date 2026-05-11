@@ -93,6 +93,8 @@ async function main(): Promise<void> {
     catch (e) {
       if (e instanceof CliArgsError) {
         console.error(c.err('error: ') + e.message);
+        console.error('');
+        printUsage();
         process.exit(1);
       }
       throw e;

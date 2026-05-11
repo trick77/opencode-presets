@@ -7,7 +7,6 @@ export interface SetValue {
   scope?: string;     // optional <preset-name>. prefix from --set foo.name=...
   name: string;
   value: string;
-  fromEnv: boolean;   // true if the value originated from --set-env (already resolved)
 }
 
 export interface InstallArgs {
@@ -22,7 +21,12 @@ const PROMPT_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_-]*$/;
 const SCOPE_RE = /^[a-zA-Z0-9_][a-zA-Z0-9_-]*$/;
 const ENV_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
-export class CliArgsError extends Error {}
+export class CliArgsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CliArgsError';
+  }
+}
 
 // args is everything after `install` (so --reset, --set, --set-env, and conf paths).
 // Forms accepted:
@@ -99,7 +103,10 @@ function parseSetSpec(spec: string, fromEnv: boolean): SetValue {
     if (resolved === undefined) {
       throw new CliArgsError(`--set-env: environment variable "${rhs}" is not set`);
     }
-    return { scope, name, value: resolved, fromEnv: true };
+    if (resolved === '') {
+      throw new CliArgsError(`--set-env: environment variable "${rhs}" is empty`);
+    }
+    return { scope, name, value: resolved };
   }
-  return { scope, name, value: rhs, fromEnv: false };
+  return { scope, name, value: rhs };
 }

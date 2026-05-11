@@ -20,7 +20,7 @@ function mod(name: string, prompts: string[]): BatchModule {
 }
 
 const sv = (name: string, value: string, scope?: string): SetValue =>
-  ({ scope, name, value, fromEnv: false });
+  ({ scope, name, value });
 
 describe('distributeSetValues', () => {
   test('routes unscoped value to the only module that declares it', () => {

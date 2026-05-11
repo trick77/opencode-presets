@@ -30,12 +30,12 @@ describe('parseInstallArgs — --set', () => {
   test('plain NAME=VALUE', () => {
     const r = parseInstallArgs(['mcp-http', '--set', 'name=openrag']);
     assert.deepEqual(r.confPaths, ['mcp-http']);
-    assert.deepEqual(r.setValues, [{ scope: undefined, name: 'name', value: 'openrag', fromEnv: false }]);
+    assert.deepEqual(r.setValues, [{ scope: undefined, name: 'name', value: 'openrag' }]);
   });
 
   test('--set=NAME=VALUE attached form', () => {
     const r = parseInstallArgs(['--set=url=https://x/y']);
-    assert.deepEqual(r.setValues, [{ scope: undefined, name: 'url', value: 'https://x/y', fromEnv: false }]);
+    assert.deepEqual(r.setValues, [{ scope: undefined, name: 'url', value: 'https://x/y' }]);
   });
 
   test('value containing = is preserved verbatim', () => {
@@ -45,7 +45,7 @@ describe('parseInstallArgs — --set', () => {
 
   test('scoped <preset>.<name>=value', () => {
     const r = parseInstallArgs(['--set', 'mcp-http.name=openrag']);
-    assert.deepEqual(r.setValues, [{ scope: 'mcp-http', name: 'name', value: 'openrag', fromEnv: false }]);
+    assert.deepEqual(r.setValues, [{ scope: 'mcp-http', name: 'name', value: 'openrag' }]);
   });
 
   test('--set without value throws', () => {
@@ -86,7 +86,7 @@ describe('parseInstallArgs — --set-env', () => {
     process.env.OPENCODE_TEST_TOKEN = 'sekret';
     try {
       const r = parseInstallArgs(['--set-env', 'headerValue=OPENCODE_TEST_TOKEN']);
-      assert.deepEqual(r.setValues, [{ scope: undefined, name: 'headerValue', value: 'sekret', fromEnv: true }]);
+      assert.deepEqual(r.setValues, [{ scope: undefined, name: 'headerValue', value: 'sekret' }]);
     } finally {
       delete process.env.OPENCODE_TEST_TOKEN;
     }
@@ -109,9 +109,20 @@ describe('parseInstallArgs — --set-env', () => {
     try {
       const r = parseInstallArgs(['--set-env=headerValue=OPENCODE_TEST_TOKEN2']);
       assert.equal(r.setValues[0].value, 'v');
-      assert.equal(r.setValues[0].fromEnv, true);
     } finally {
       delete process.env.OPENCODE_TEST_TOKEN2;
+    }
+  });
+
+  test('empty env var value throws', () => {
+    process.env.OPENCODE_TEST_EMPTY = '';
+    try {
+      assert.throws(
+        () => parseInstallArgs(['--set-env', 'x=OPENCODE_TEST_EMPTY']),
+        /is empty/,
+      );
+    } finally {
+      delete process.env.OPENCODE_TEST_EMPTY;
     }
   });
 });
