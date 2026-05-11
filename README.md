@@ -31,6 +31,44 @@ Every change shows a diff and asks before touching anything. A
 backup is written to `~/.cache/opencode-presets/backups/` before
 each write — no auto-pruning, so they pile up.
 
+### Non-interactive prompt values (`--set` / `--set-env`)
+
+Presets with `@prompt` directives normally ask interactively. To
+drive them from a script (or just paste a one-liner from a wiki),
+pre-fill any prompt with `--set NAME=VALUE`:
+
+```sh
+opencode-presets install mcp-http \
+  --set name=openrag \
+  --set url=https://openrag.example.internal/mcp \
+  --set headerName=X-Bitbucket-Token \
+  --set 'headerValue=raw-token-here'
+```
+
+**Quote values that contain shell metacharacters** (`$`, `!`, `*`,
+backticks, spaces, etc.) with single quotes — otherwise the shell
+expands them before `opencode-presets` ever sees the value. A
+Bitbucket PAT that starts with `$` will silently turn into an empty
+string without quoting.
+
+For secrets, prefer `--set-env NAME=ENV_VAR`. The CLI reads the
+value from the named environment variable at install time, so the
+token never appears in shell history or process listings:
+
+```sh
+export BITBUCKET_TOKEN=…
+opencode-presets install mcp-http \
+  --set name=openrag \
+  --set url=https://openrag.example.internal/mcp \
+  --set headerName=X-Bitbucket-Token \
+  --set-env headerValue=BITBUCKET_TOKEN
+```
+
+When installing several modules in one call, scope a value with
+`<preset>.<name>` if the same prompt name appears in more than one
+of them: `--set mcp-http.name=openrag`. Unscoped values across
+ambiguous prompts are rejected with a clear error.
+
 ## Built-in presets
 
 | Preset | Category | Mode | Description |

@@ -8,6 +8,7 @@ import type { ApplyStats, RemoveStats, MergeMode } from './merge.js';
 import { fetchAsset } from './fetch-asset.js';
 import { backup } from './backup.js';
 import { c, confirm, promptText, promptSecret, describe, wrap } from './ui.js';
+import type { SetValue } from './cli-args.js';
 import { validateAgainstSchema } from './validate.js';
 
 const SCHEMA_URL = 'https://opencode.ai/config.json';
@@ -16,7 +17,7 @@ const ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
 type Json = unknown;
 type JsonObject = Record<string, unknown>;
 
-interface BatchModule {
+export interface BatchModule {
   confPath: string;
   meta: ConfMeta;
   body: Json;
@@ -42,6 +43,7 @@ interface ResetStat {
 export interface RunBatchOpts {
   resets: string[];
   confPaths: string[];
+  setValues?: SetValue[];
   target: string;
   cacheDir: string;
   backupDir: string;
@@ -56,7 +58,7 @@ export interface RunRemoveBatchOpts {
 
 // Run a batch consisting of zero or more --reset paths followed by
 // zero or more module installs. Either side may be empty.
-export async function runBatch({ resets, confPaths, target, cacheDir, backupDir }: RunBatchOpts): Promise<void> {
+export async function runBatch({ resets, confPaths, setValues, target, cacheDir, backupDir }: RunBatchOpts): Promise<void> {
   const modules: BatchModule[] = [];
   for (const cp of confPaths) {
     try {
@@ -66,6 +68,15 @@ export async function runBatch({ resets, confPaths, target, cacheDir, backupDir 
       console.error(c.err('error: ') + (e instanceof Error ? e.message : String(e)));
       process.exit(2);
     }
+  }
+
+  // Distribute --set / --set-env values to modules. Errors here surface
+  // before the user is asked to confirm anything.
+  try {
+    distributeSetValues(modules, setValues ?? []);
+  } catch (e) {
+    console.error(c.err('error: ') + (e instanceof Error ? e.message : String(e)));
+    process.exit(1);
   }
 
   const existing = await loadJsonOrNull(target);
@@ -88,16 +99,25 @@ export async function runBatch({ resets, confPaths, target, cacheDir, backupDir 
   // ── Collect prompts per module ──
   for (const m of modules) {
     if (m.meta.prompts.length === 0) continue;
-    console.log('');
-    console.log(c.bold(m.meta.name) + c.dim(' — inputs:'));
-    m.promptValues = {};
+    const preset = m.promptValues ?? {};
+    const allPreset = m.meta.prompts.every(p => p.name in preset);
+    if (!allPreset) {
+      console.log('');
+      console.log(c.bold(m.meta.name) + c.dim(' — inputs:'));
+    }
+    m.promptValues = { ...preset };
     for (const p of m.meta.prompts) {
-      const label = '  ' + c.bold(p.name) +
-        (p.help ? c.meta(' (' + p.help + ')') : '') +
-        (p.default !== undefined ? c.meta(' [default: ' + p.default + ']') : '') +
-        ': ';
-      const raw = p.type === 'secret' ? await promptSecret(label) : await promptText(label);
-      let val = raw;
+      let val: string;
+      if (p.name in preset) {
+        val = preset[p.name];
+      } else {
+        const label = '  ' + c.bold(p.name) +
+          (p.help ? c.meta(' (' + p.help + ')') : '') +
+          (p.default !== undefined ? c.meta(' [default: ' + p.default + ']') : '') +
+          ': ';
+        const raw = p.type === 'secret' ? await promptSecret(label) : await promptText(label);
+        val = raw;
+      }
       if (!val) {
         if (p.default !== undefined) {
           val = p.default;
@@ -440,7 +460,9 @@ function expandCacheInValue(value: Json, cacheDir: string): Json {
   if (Array.isArray(value)) return value.map(v => expandCacheInValue(v, cacheDir));
   if (value && typeof value === 'object') {
     const out: JsonObject = {};
-    for (const [k, v] of Object.entries(value as JsonObject)) out[k] = expandCacheInValue(v, cacheDir);
+    for (const [k, v] of Object.entries(value as JsonObject)) {
+      out[expandCacheStr(k, cacheDir)] = expandCacheInValue(v, cacheDir);
+    }
     return out;
   }
   return value;
@@ -460,10 +482,45 @@ function expandPromptsInValue(value: Json, promptValues: Record<string, string>)
   if (Array.isArray(value)) return value.map(v => expandPromptsInValue(v, promptValues));
   if (value && typeof value === 'object') {
     const out: JsonObject = {};
-    for (const [k, v] of Object.entries(value as JsonObject)) out[k] = expandPromptsInValue(v, promptValues);
+    for (const [k, v] of Object.entries(value as JsonObject)) {
+      out[expandPromptsStr(k, promptValues)] = expandPromptsInValue(v, promptValues);
+    }
     return out;
   }
   return value;
+}
+
+// Route --set / --set-env values to their target modules. Scoped values
+// (preset.name) must match a module's @name. Unscoped values are
+// accepted only when exactly one loaded module declares that prompt;
+// ambiguity is a hard error rather than guessing. Unknown names and
+// duplicate assignments are also rejected.
+export function distributeSetValues(modules: BatchModule[], setValues: SetValue[]): void {
+  if (setValues.length === 0) return;
+  for (const sv of setValues) {
+    const matches = modules.filter(m => {
+      if (sv.scope !== undefined && m.meta.name !== sv.scope) return false;
+      return m.meta.prompts.some(p => p.name === sv.name);
+    });
+    if (matches.length === 0) {
+      if (sv.scope !== undefined) {
+        throw new Error(`--set ${sv.scope}.${sv.name}: no module named "${sv.scope}" declares a prompt "${sv.name}"`);
+      }
+      throw new Error(`--set ${sv.name}: no installed module declares a prompt with that name`);
+    }
+    if (matches.length > 1) {
+      const names = matches.map(m => m.meta.name).join(', ');
+      throw new Error(
+        `--set ${sv.name}: ambiguous — declared by multiple modules (${names}). Scope it as --set <preset>.${sv.name}=...`
+      );
+    }
+    const m = matches[0];
+    m.promptValues ??= {};
+    if (sv.name in m.promptValues) {
+      throw new Error(`--set ${sv.name}: value provided more than once for module "${m.meta.name}"`);
+    }
+    m.promptValues[sv.name] = sv.value;
+  }
 }
 
 function isPlainObject(v: unknown): v is JsonObject {
