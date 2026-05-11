@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseInstallArgs, CliArgsError } from '../src/cli-args.js';
+import { parseInstallArgs, validateInstallPolicy, CliArgsError } from '../src/cli-args.js';
 
 describe('parseInstallArgs — existing behavior', () => {
   test('plain conf paths', () => {
@@ -139,5 +139,36 @@ describe('parseInstallArgs — mixed', () => {
     assert.deepEqual(r.resets, ['mcp.foo']);
     assert.deepEqual(r.confPaths, ['mcp-http', 'permissions-git-safe']);
     assert.equal(r.setValues.length, 2);
+  });
+});
+
+describe('validateInstallPolicy', () => {
+  test('null when no --set is used (any number of presets)', () => {
+    assert.equal(validateInstallPolicy(parseInstallArgs(['a', 'b', 'c'])), null);
+    assert.equal(validateInstallPolicy(parseInstallArgs([])), null);
+  });
+
+  test('null when --set targets exactly one preset', () => {
+    const r = parseInstallArgs(['mcp-http', '--set', 'name=x']);
+    assert.equal(validateInstallPolicy(r), null);
+  });
+
+  test('null when --set + one preset + --reset', () => {
+    const r = parseInstallArgs(['--reset', 'mcp.foo', 'mcp-http', '--set', 'name=x']);
+    assert.equal(validateInstallPolicy(r), null);
+  });
+
+  test('errors when --set is used with multiple presets', () => {
+    const r = parseInstallArgs(['mcp-http', 'mcp-http-noauth', '--set', 'name=x']);
+    const err = validateInstallPolicy(r);
+    assert.ok(err, 'expected an error');
+    assert.match(err!, /exactly one preset/);
+  });
+
+  test('errors when --set is used with no presets', () => {
+    const r = parseInstallArgs(['--set', 'name=x']);
+    const err = validateInstallPolicy(r);
+    assert.ok(err, 'expected an error');
+    assert.match(err!, /requires a preset/);
   });
 });

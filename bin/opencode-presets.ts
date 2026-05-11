@@ -10,7 +10,7 @@ import { backup } from '../src/backup.js';
 import { c, confirm, closeUi } from '../src/ui.js';
 import { listConfs } from '../src/list.js';
 import { runBatch, runRemoveBatch } from '../src/batch.js';
-import { parseInstallArgs, CliArgsError } from '../src/cli-args.js';
+import { parseInstallArgs, validateInstallPolicy, CliArgsError } from '../src/cli-args.js';
 import { validateAgainstSchema } from '../src/validate.js';
 
 const CACHE_DIR = process.env.OPENCODE_PRESETS_CACHE
@@ -102,6 +102,11 @@ async function main(): Promise<void> {
     const { resets, confPaths, setValues } = parsed;
     if (confPaths.length === 0 && resets.length === 0) {
       printUsage();
+      process.exit(1);
+    }
+    const policyError = validateInstallPolicy(parsed);
+    if (policyError !== null) {
+      console.error(c.err('error: ') + policyError);
       process.exit(1);
     }
     const resolved = await Promise.all(confPaths.map(resolveConfArg));
