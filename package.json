@@ -1,6 +1,6 @@
 {
   "name": "opencode-presets",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Interactive CLI that patches opencode.json with curated config presets — LSP, MCP, permissions.",
   "type": "module",
   "bin": {
