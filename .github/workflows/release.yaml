@@ -9,9 +9,14 @@ permissions:
   contents: write   # to create the GitHub Release
   id-token: write   # OIDC token used by npm trusted publishing
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: npm-publish
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -33,7 +38,7 @@ jobs:
       # OIDC trusted publishing requires npm >= 11.5.1. Invoke via npx
       # so we always get a recent enough CLI without mutating the
       # global npm install on the runner.
-      - run: npx -y npm@latest publish --access public
+      - run: npx -y npm@latest publish --access public --provenance
       - uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
