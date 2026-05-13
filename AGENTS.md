@@ -110,3 +110,22 @@ chars. When adding entries to `permission.bash`:
 - Telemetry, network calls beyond declared `@fetch` URLs.
 - A second prompt UI library. The current `src/ui.ts` handles it.
 - Backups under `~/.config/opencode/`; they belong in the cache dir.
+
+## package.json — supply-chain hygiene
+
+Do NOT add any of the following without an explicit human review:
+
+- An `optionalDependencies` block, or a `dependencies` entry using a
+  `git+`, `http(s):`, `file:`, or tarball specifier. The May 2026
+  TanStack worm shipped its payload via exactly this shape.
+- A `prepare`, `preinstall`, `postinstall`, or other install-time
+  lifecycle script. This package's only lifecycle scripts are
+  `prepare`/`prepublishOnly` running `tsc`; don't broaden them.
+- Floating version ranges (`^`, `~`, `*`, `latest`) in `dependencies`
+  or `devDependencies`. Pin exact versions so `package-lock.json` is
+  the only source of truth.
+- New runtime dependencies in general — see "Code conventions" above.
+
+The `npm publish` step must pass `--provenance` so the published
+tarball carries SLSA build attestation verifiable via
+`npm audit signatures`.
