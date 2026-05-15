@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="180" viewBox="0 0 840 180" role="img" aria-labelledby="title desc">
+  <title id="title">opencode-presets</title>
+  <desc id="desc">A clean product logo for opencode-presets.</desc>
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="1" stop-color="#13261f"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f5c542"/>
+      <stop offset="0.5" stop-color="#35d0ba"/>
+      <stop offset="1" stop-color="#7dd3fc"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#020617" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <rect width="840" height="180" rx="28" fill="#f8fafc"/>
+  <rect x="16" y="16" width="808" height="148" rx="22" fill="url(#panel)" filter="url(#shadow)"/>
+
+  <g transform="translate(50 39)">
+    <g fill="#f8fafc" stroke-width="0">
+      <rect x="0" y="8" width="50" height="38" rx="10"/>
+      <rect x="32" y="58" width="50" height="38" rx="10"/>
+      <rect x="82" y="18" width="50" height="38" rx="10"/>
+    </g>
+    <g fill="none" stroke="#0b1020" stroke-width="5" stroke-linecap="round">
+      <path d="M15 24h20M15 34h13"/>
+      <path d="M47 74h20M47 84h13"/>
+      <path d="M97 34h20M97 44h13"/>
+    </g>
+    <circle cx="38" cy="34" r="5" fill="#f5c542"/>
+    <circle cx="70" cy="84" r="5" fill="#35d0ba"/>
+    <circle cx="120" cy="44" r="5" fill="#7dd3fc"/>
+
+    <path d="M54 27C87 27 111 70 149 70" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
+    <path d="M86 77h63" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
+    <path d="M136 37c13 0 17 33 29 33" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
+
+    <g transform="translate(164 10)">
+      <rect x="0" y="0" width="96" height="92" rx="16" fill="#101827" stroke="#7dd3fc" stroke-width="3"/>
+      <path d="M18 28h56M18 48h42M18 68h52" fill="none" stroke="#e0f2fe" stroke-width="5" stroke-linecap="round"/>
+      <path d="M-17 60h17" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"/>
+      <path d="M76 20l10 10-10 10" fill="none" stroke="#35d0ba" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <g transform="translate(330 67)">
+    <text x="0" y="0" fill="#f8fafc" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="44" font-weight="760" letter-spacing="0">
+      opencode-presets
+    </text>
+    <rect x="1" y="25" width="302" height="5" rx="2.5" fill="url(#accent)"/>
+    <text x="2" y="58" fill="#ccfbf1" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="17" font-weight="560" letter-spacing="0">
+      reusable config modules for opencode
+    </text>
+  </g>
+</svg>

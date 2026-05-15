@@ -1,4 +1,6 @@
-# opencode-presets
+<p>
+  <img src="logo.svg" alt="opencode-presets" width="720">
+</p>
 
 Small CLI that patches `~/.config/opencode/opencode.json` from
 prepared presets. Use it to add LSP overrides, MCP servers, and
