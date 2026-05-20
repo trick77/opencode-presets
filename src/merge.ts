@@ -7,8 +7,10 @@
 //                       missing from the target are added. Idempotent.
 //   'merge-overwrite' — object merge that DOES overwrite overlapping
 //                       keys.
+//   'append'          — additive array merge: existing entries are preserved
+//                       and missing incoming entries are appended. Idempotent.
 
-export type MergeMode = 'replace' | 'merge' | 'merge-overwrite';
+export type MergeMode = 'replace' | 'merge' | 'merge-overwrite' | 'append';
 
 export interface ApplyStats {
   mode: MergeMode;
@@ -59,6 +61,25 @@ export function applyAtPath(
 function combine(existing: Json, incoming: Json, mode: MergeMode): { value: Json; stats: ApplyStats } {
   const stats: ApplyStats = { mode, added: 0, preserved: 0, overwritten: 0, replaced: false };
 
+  if (mode === 'append') {
+    if (!Array.isArray(incoming)) {
+      throw new Error('@mode: append requires the body to be a JSON array');
+    }
+    if (existing !== undefined && !Array.isArray(existing)) {
+      throw new Error('@mode: append requires the existing value at path to be a JSON array');
+    }
+    const target: Json[] = Array.isArray(existing) ? [...existing] : [];
+    for (const v of incoming) {
+      if (target.some(existingValue => deepEqual(existingValue, v))) {
+        stats.preserved++;
+      } else {
+        target.push(v);
+        stats.added++;
+      }
+    }
+    return { value: target, stats };
+  }
+
   if (mode === 'merge' || mode === 'merge-overwrite') {
     if (!isPlainObject(incoming)) {
       throw new Error(`@mode: ${mode} requires the body to be a JSON object`);
@@ -88,7 +109,8 @@ function combine(existing: Json, incoming: Json, mode: MergeMode): { value: Json
 // Remove a value or selected keys at a dotted JSON path.
 // For 'replace' mode: deletes the whole leaf at `path`.
 // For merge modes: deletes each key from `body` at `path` only if the
-// current value still matches `body[key]`. Empty parent objects pruned.
+// current value still matches `body[key]`. For append mode: deletes matching
+// array entries. Empty parent objects/arrays pruned.
 export function removeAtPath(
   root: Json,
   dottedPath: string,
@@ -120,7 +142,27 @@ export function removeAtPath(
     return { next, stats };
   }
 
-  if (mode === 'merge' || mode === 'merge-overwrite') {
+  if (mode === 'append') {
+    if (!Array.isArray(body)) {
+      throw new Error('remove in @mode: append requires the body to be a JSON array');
+    }
+    const target = cursor[last];
+    if (!Array.isArray(target)) {
+      stats.missing = true;
+      return { next, stats };
+    }
+    const keptValues = target.filter(value => {
+      const remove = body.some(bodyValue => deepEqual(value, bodyValue));
+      if (remove) stats.removed++;
+      return !remove;
+    });
+    if (keptValues.length === 0) {
+      delete cursor[last];
+      pruneEmpty(parents);
+    } else {
+      cursor[last] = keptValues;
+    }
+  } else if (mode === 'merge' || mode === 'merge-overwrite') {
     if (!isPlainObject(body)) {
       throw new Error(`remove in @mode: ${mode} requires the body to be a JSON object`);
     }

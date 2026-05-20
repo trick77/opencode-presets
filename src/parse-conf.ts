@@ -76,8 +76,8 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
           meta[key] = value;
           break;
         case 'mode':
-          if (value !== 'replace' && value !== 'merge' && value !== 'merge-overwrite') {
-            throw parseError(filePath, i + 1, `@mode must be "replace", "merge", or "merge-overwrite", got "${value}"`);
+          if (value !== 'replace' && value !== 'merge' && value !== 'merge-overwrite' && value !== 'append') {
+            throw parseError(filePath, i + 1, `@mode must be "replace", "merge", "merge-overwrite", or "append", got "${value}"`);
           }
           meta.mode = value;
           break;
@@ -118,6 +118,10 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
   if ((meta.mode === 'merge' || meta.mode === 'merge-overwrite') &&
       (body === null || typeof body !== 'object' || Array.isArray(body))) {
     throw parseError(filePath, 1, `@mode: ${meta.mode} requires the body to be a JSON object`);
+  }
+
+  if (meta.mode === 'append' && !Array.isArray(body)) {
+    throw parseError(filePath, 1, '@mode: append requires the body to be a JSON array');
   }
 
   return { meta, body };

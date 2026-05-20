@@ -117,12 +117,28 @@ function installDiff(current: unknown, incoming: unknown, meta: ConfMeta): strin
       return c.dim('(no existing value — will create)') + '\n' +
              c.ok('+ ') + truncJson(incoming);
     }
+    if (meta.mode === 'append') {
+      const entries = Array.isArray(incoming) ? incoming.length : 0;
+      return c.dim(`(no existing value — will create with ${entries} entr${entries === 1 ? 'y' : 'ies'})`);
+    }
     const keys = Object.keys(incoming as object);
     return c.dim(`(no existing value — will create with ${keys.length} key${keys.length === 1 ? '' : 's'})`);
   }
   if (meta.mode === 'replace') {
     if (deepEqual(current, incoming)) return c.dim('(no change — value already matches)');
     return c.warn('- ') + truncJson(current) + '\n' + c.ok('+ ') + truncJson(incoming);
+  }
+  if (meta.mode === 'append') {
+    if (!Array.isArray(current)) {
+      return c.err('! cannot append: existing value at path is not an array');
+    }
+    const inc = Array.isArray(incoming) ? incoming : [];
+    const willAdd = inc.filter(v => !current.some(existing => deepEqual(existing, v)));
+    const willPreserve = inc.length - willAdd.length;
+    const lines: string[] = [];
+    lines.push(c.dim(`append ${willAdd.length}, preserve ${willPreserve}`));
+    if (willAdd.length > 0) lines.push(c.ok('+ ') + sampleValues(willAdd, 5));
+    return lines.join('\n');
   }
   if (typeof current !== 'object' || current === null || Array.isArray(current)) {
     return c.err('! cannot merge: existing value at path is not an object');
@@ -148,6 +164,16 @@ function removeDiff(current: unknown, incoming: unknown, meta: ConfMeta): string
     return c.warn('- ') + truncJson(current) + '\n' +
            c.dim('(entire value above will be deleted; parent objects pruned if empty)');
   }
+  if (meta.mode === 'append') {
+    if (!Array.isArray(current)) {
+      return c.dim('(value at path is not an array — nothing matchable to remove)');
+    }
+    const inc = Array.isArray(incoming) ? incoming : [];
+    const willRemove = current.filter(value => inc.some(incomingValue => deepEqual(value, incomingValue)));
+    const lines = [c.dim(`remove ${willRemove.length} matching entr${willRemove.length === 1 ? 'y' : 'ies'}`)];
+    if (willRemove.length > 0) lines.push(c.warn('- ') + sampleValues(willRemove, 5));
+    return lines.join('\n');
+  }
   if (typeof current !== 'object' || current === null || Array.isArray(current)) {
     return c.dim('(value at path is not an object — nothing matchable to remove)');
   }
@@ -170,6 +196,12 @@ function sample(keys: string[], n: number): string {
   if (keys.length <= n) return keys.map(k => JSON.stringify(k)).join(', ');
   const shown = keys.slice(0, n).map(k => JSON.stringify(k)).join(', ');
   return shown + c.dim(` … (+${keys.length - n} more)`);
+}
+
+function sampleValues(values: unknown[], n: number): string {
+  if (values.length <= n) return values.map(v => JSON.stringify(v)).join(', ');
+  const shown = values.slice(0, n).map(v => JSON.stringify(v)).join(', ');
+  return shown + c.dim(` … (+${values.length - n} more)`);
 }
 
 function truncJson(value: unknown, max = 200): string {
