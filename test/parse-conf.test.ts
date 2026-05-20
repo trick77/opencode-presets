@@ -48,9 +48,9 @@ describe('parseConfString — multi-line description', () => {
 });
 
 describe('parseConfString — @mode', () => {
-  test('accepts replace, merge, merge-overwrite', () => {
-    for (const mode of ['replace', 'merge', 'merge-overwrite']) {
-      const body = mode === 'replace' ? '{}' : '{}'; // object body works for both
+  test('accepts replace, merge, merge-overwrite, append', () => {
+    for (const mode of ['replace', 'merge', 'merge-overwrite', 'append']) {
+      const body = mode === 'append' ? '[]' : '{}';
       const src = minimalHeader + `// @mode: ${mode}\n\n${body}`;
       const { meta } = parseConfString(src);
       assert.equal(meta.mode, mode);
@@ -65,6 +65,11 @@ describe('parseConfString — @mode', () => {
   test('merge mode requires object body', () => {
     const src = minimalHeader + '// @mode: merge\n\n[1,2,3]';
     assert.throws(() => parseConfString(src), /requires the body to be a JSON object/);
+  });
+
+  test('append mode requires array body', () => {
+    const src = minimalHeader + '// @mode: append\n\n{}';
+    assert.throws(() => parseConfString(src), /requires the body to be a JSON array/);
   });
 
   test('replace mode accepts array, scalar, object', () => {

@@ -23,7 +23,7 @@ Every `presets/*.conf` must start with these directives (order doesn't
 matter):
 
 - `@name`, `@description`, `@author`, `@version`, `@path` — required.
-- `@mode` — `replace` (default) | `merge` | `merge-overwrite`.
+- `@mode` — `replace` (default) | `merge` | `merge-overwrite` | `append`.
 - `@fetch: URL -> dest [sha256=hex]` — repeatable.
 - `@prompt: name | type | help | default` — repeatable; type ∈
   `text`/`secret`. Help and default are optional. Default is
@@ -32,7 +32,8 @@ matter):
 
 Body is JSONC. After parsing it must be valid JSON of the shape the
 leaf at `@path` expects (object/array/scalar all allowed for `replace`;
-must be an object for `merge`/`merge-overwrite`).
+must be an object for `merge`/`merge-overwrite`; must be an array for
+`append`).
 
 Substitutions inside body and inside `@path`: `{{cache}}`,
 `{{prompt:<name>}}`.

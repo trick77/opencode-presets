@@ -76,6 +76,39 @@ describe('applyAtPath — merge-overwrite mode', () => {
   });
 });
 
+describe('applyAtPath — append mode', () => {
+  test('creates an array at a fresh path', () => {
+    const { next, stats } = applyAtPath({}, 'plugin', ['a'], 'append');
+    assert.deepEqual((next as any).plugin, ['a']);
+    assert.equal(stats.added, 1);
+    assert.equal(stats.preserved, 0);
+  });
+
+  test('appends missing values and preserves existing values', () => {
+    const root = { plugin: ['a'] };
+    const { next, stats } = applyAtPath(root, 'plugin', ['a', 'b'], 'append');
+    assert.deepEqual((next as any).plugin, ['a', 'b']);
+    assert.equal(stats.added, 1);
+    assert.equal(stats.preserved, 1);
+  });
+
+  test('deduplicates objects by deep equality', () => {
+    const root = { plugin: [['pkg', { enabled: true }]] };
+    const { next, stats } = applyAtPath(root, 'plugin', [['pkg', { enabled: true }]], 'append');
+    assert.deepEqual((next as any).plugin, [['pkg', { enabled: true }]]);
+    assert.equal(stats.added, 0);
+    assert.equal(stats.preserved, 1);
+  });
+
+  test('rejects non-array body', () => {
+    assert.throws(() => applyAtPath({}, 'plugin', { a: 1 }, 'append'), /JSON array/);
+  });
+
+  test('rejects existing non-array target', () => {
+    assert.throws(() => applyAtPath({ plugin: {} }, 'plugin', ['a'], 'append'), /existing value at path/);
+  });
+});
+
 describe('removeAtPath — replace mode', () => {
   test('deletes the leaf and prunes empty parents', () => {
     const root = { a: { b: { c: 'x' } }, other: 1 };
@@ -118,6 +151,21 @@ describe('removeAtPath — merge mode', () => {
     const root = { p: { a: 'allow', b: 'deny' } };
     const { next } = removeAtPath(root, 'p', { a: 'allow', b: 'allow' }, 'merge');
     assert.deepEqual((next as any).p, { b: 'deny' });
+  });
+});
+
+describe('removeAtPath — append mode', () => {
+  test('removes matching array entries only', () => {
+    const root = { plugin: ['a', 'b', 'c'] };
+    const { next, stats } = removeAtPath(root, 'plugin', ['b'], 'append');
+    assert.deepEqual((next as any).plugin, ['a', 'c']);
+    assert.equal(stats.removed, 1);
+  });
+
+  test('prunes parent when removal empties array', () => {
+    const root = { plugin: ['a'] };
+    const { next } = removeAtPath(root, 'plugin', ['a'], 'append');
+    assert.deepEqual(next, {});
   });
 });
 
