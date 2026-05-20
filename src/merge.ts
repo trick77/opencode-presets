@@ -148,6 +148,8 @@ export function removeAtPath(
     }
     const target = cursor[last];
     if (!Array.isArray(target)) {
+      // Removal is best-effort for additive modes: wrong-shaped existing
+      // values are treated like missing values, matching merge mode below.
       stats.missing = true;
       return { next, stats };
     }

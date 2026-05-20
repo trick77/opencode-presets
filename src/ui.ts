@@ -119,7 +119,9 @@ function installDiff(current: unknown, incoming: unknown, meta: ConfMeta): strin
     }
     if (meta.mode === 'append') {
       const entries = Array.isArray(incoming) ? incoming.length : 0;
-      return c.dim(`(no existing value — will create with ${entries} entr${entries === 1 ? 'y' : 'ies'})`);
+      const lines = [c.dim(`(no existing value — will create with ${entries} entr${entries === 1 ? 'y' : 'ies'})`)];
+      if (Array.isArray(incoming) && incoming.length > 0) lines.push(c.ok('+ ') + sampleValues(incoming, 5));
+      return lines.join('\n');
     }
     const keys = Object.keys(incoming as object);
     return c.dim(`(no existing value — will create with ${keys.length} key${keys.length === 1 ? '' : 's'})`);
