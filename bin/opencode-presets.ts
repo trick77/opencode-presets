@@ -20,6 +20,9 @@ const BACKUP_DIR = resolve(CACHE_DIR, 'backups');
 const TARGET = process.env.OPENCODE_CONFIG
   ? resolve(process.env.OPENCODE_CONFIG)
   : resolve(homedir(), '.config/opencode/opencode.json');
+const TUI_TARGET = process.env.OPENCODE_TUI_CONFIG
+  ? resolve(process.env.OPENCODE_TUI_CONFIG)
+  : resolve(homedir(), '.config/opencode/tui.json');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // __dirname is either <repo>/bin (running source via ts) or
@@ -55,6 +58,7 @@ const DEFAULT_PRESET_DIRS: string[] = [
 ];
 
 const SCHEMA_URL = 'https://opencode.ai/config.json';
+const TUI_SCHEMA_URL = 'https://opencode.ai/tui.json';
 const EMPTY_CONFIG = { '$schema': SCHEMA_URL };
 
 async function main(): Promise<void> {
@@ -114,7 +118,8 @@ async function main(): Promise<void> {
       resets,
       confPaths: resolved,
       setValues,
-      target: TARGET,
+      targets: { config: TARGET, tui: TUI_TARGET },
+      schemas: { config: SCHEMA_URL, tui: TUI_SCHEMA_URL },
       cacheDir: CACHE_DIR,
       backupDir: BACKUP_DIR,
     });
@@ -127,7 +132,8 @@ async function main(): Promise<void> {
     const resolved = await Promise.all(args.map(resolveConfArg));
     await runRemoveBatch({
       confPaths: resolved,
-      target: TARGET,
+      targets: { config: TARGET, tui: TUI_TARGET },
+      schemas: { config: SCHEMA_URL, tui: TUI_SCHEMA_URL },
       cacheDir: CACHE_DIR,
       backupDir: BACKUP_DIR,
     });
@@ -314,6 +320,7 @@ function printUsage(): void {
   console.log('');
   console.log('Environment:');
   console.log('  OPENCODE_CONFIG         target opencode.json (default ~/.config/opencode/opencode.json)');
+  console.log('  OPENCODE_TUI_CONFIG     target tui.json      (default ~/.config/opencode/tui.json)');
   console.log('  OPENCODE_PRESETS_CACHE  cache dir            (default ~/.cache/opencode-presets)');
   console.log('  OPENCODE_PRESETS_PATH   colon-separated extra preset dirs (searched first by `list`,');
   console.log('                          ahead of ./presets and <repo>/presets)');

@@ -8,6 +8,7 @@ export interface FetchDirective {
 }
 
 export type PromptType = 'text' | 'secret';
+export type ConfTarget = 'config' | 'tui';
 
 export interface PromptDirective {
   name: string;
@@ -21,6 +22,7 @@ export interface ConfMeta {
   description: string;
   author: string;
   version: string;
+  target: ConfTarget;
   path: string;
   mode: MergeMode;
   fetch: FetchDirective[];
@@ -47,6 +49,7 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
     description: '',
     author: '',
     version: '',
+    target: 'config',
     path: '',
     mode: 'replace',
     fetch: [],
@@ -74,6 +77,12 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
         case 'version':
         case 'path':
           meta[key] = value;
+          break;
+        case 'target':
+          if (value !== 'config' && value !== 'tui') {
+            throw parseError(filePath, i + 1, `@target must be "config" or "tui", got "${value}"`);
+          }
+          meta.target = value;
           break;
         case 'mode':
           if (value !== 'replace' && value !== 'merge' && value !== 'merge-overwrite' && value !== 'append') {

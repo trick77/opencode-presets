@@ -3,11 +3,13 @@
 ## Testing — never touch the real config
 
 Always point the CLI at a temp target/cache. Never run install/remove/reset
-against the user's actual `~/.config/opencode/opencode.json`.
+against the user's actual `~/.config/opencode/opencode.json` or
+`~/.config/opencode/tui.json`.
 
 ```sh
 rm -rf /tmp/oc-test && mkdir -p /tmp/oc-test/cache /tmp/oc-test/cfg
 export OPENCODE_CONFIG=/tmp/oc-test/cfg/opencode.json
+export OPENCODE_TUI_CONFIG=/tmp/oc-test/cfg/tui.json
 export OPENCODE_PRESETS_CACHE=/tmp/oc-test/cache
 npm run build && node dist/bin/opencode-presets.js install ./presets/<name>.conf
 ```
@@ -23,6 +25,7 @@ Every `presets/*.conf` must start with these directives (order doesn't
 matter):
 
 - `@name`, `@description`, `@author`, `@version`, `@path` — required.
+- `@target` — `config` (default, writes `opencode.json`) | `tui` (writes `tui.json`).
 - `@mode` — `replace` (default) | `merge` | `merge-overwrite` | `append`.
 - `@fetch: URL -> dest [sha256=hex]` — repeatable.
 - `@prompt: name | type | help | default` — repeatable; type ∈
@@ -50,7 +53,7 @@ explicitly and call it out in the module's `@description`. Do not
 
 ## Backups — skip on no-op
 
-A backup must be written before every actual write to opencode.json,
+A backup must be written before every actual write to a target config file,
 and skipped when the apply is a byte-equal no-op. Don't introduce
 backups for `--help`, `list`, or declined prompts.
 
@@ -85,7 +88,7 @@ chars. When adding entries to `permission.bash`:
 ## File naming and placement
 
 - New modules go in `presets/` with a category prefix:
-  `permissions-*`, `mcp-*`, `lsp-*`, etc.
+  `permissions-*`, `mcp-*`, `lsp-*`, `tui-*`, etc.
 - One concern per module. If a module would touch two unrelated
   paths, split it.
 - Choose `@path` deep enough that two unrelated modules don't overlap.
