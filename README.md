@@ -2,9 +2,9 @@
   <img src="logo.svg" alt="opencode-presets" width="720">
 </p>
 
-Small CLI that patches `~/.config/opencode/opencode.json` from
-prepared presets. Use it to add LSP overrides, MCP servers, and
-permission rules without hand-editing JSON.
+Small CLI that patches OpenCode config files from prepared presets.
+Use it to add LSP overrides, MCP servers, permission rules, and TUI
+preferences without hand-editing JSON.
 
 ## Install
 
@@ -91,6 +91,7 @@ on a readline for the next.
 | `permissions-container-info` | Permissions | merge | Read-only docker, podman, oc inspection commands |
 | `permissions-toolchain-info` | Permissions | merge | Version probes for common dev toolchains |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
+| `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
 
 Install multiple at once:
 
@@ -156,11 +157,18 @@ For ad-hoc presets you don't want to put in a repo and don't need
 on other machines, drop them in `./presets/` from wherever you run
 the tool, or use `OPENCODE_PRESETS_PATH`.
 
-## Pointing at a different opencode.json
+## Pointing at different config files
 
 ```sh
 OPENCODE_CONFIG=/path/to/other-opencode.json opencode-presets install ...
 OPENCODE_PRESETS_CACHE=/some/cache opencode-presets install ...
+```
+
+TUI presets target `~/.config/opencode/tui.json` by default. Override
+that path with `OPENCODE_TUI_CONFIG`:
+
+```sh
+OPENCODE_TUI_CONFIG=/path/to/tui.json opencode-presets install tui-disable-mouse
 ```
 
 ## Writing your own preset
@@ -173,10 +181,16 @@ an absolute path.
 // @description: one paragraph of what this fixes / sets up.
 // @author: you <you@example.com>
 // @version: 1.0.0
+// @target: config
 // @path: some.dotted.path
 // @mode: merge
 { "key": "value" }
 ```
+
+`@target` is optional and defaults to `config`, which writes
+`opencode.json`. Use `@target: tui` for TUI presets that write
+`tui.json`. A single install or remove operation cannot mix `config`
+and `tui` presets; run separate commands for those.
 
 `@fetch: <url> -> <dest> [sha256=hex]` downloads to the cache.
 `@prompt: name | text|secret | help` collects input at install time.

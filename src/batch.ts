@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 import { parseConf } from './parse-conf.js';
-import type { ConfMeta, FetchDirective } from './parse-conf.js';
+import type { ConfMeta, ConfTarget, FetchDirective } from './parse-conf.js';
 import { applyAtPath, removeAtPath, getAtPath } from './merge.js';
 import type { ApplyStats, RemoveStats, MergeMode } from './merge.js';
 import { fetchAsset } from './fetch-asset.js';
@@ -12,6 +12,7 @@ import type { SetValue } from './cli-args.js';
 import { validateAgainstSchema } from './validate.js';
 
 const SCHEMA_URL = 'https://opencode.ai/config.json';
+const TUI_SCHEMA_URL = 'https://opencode.ai/tui.json';
 const ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
 
 type Json = unknown;
@@ -44,21 +45,26 @@ export interface RunBatchOpts {
   resets: string[];
   confPaths: string[];
   setValues?: SetValue[];
-  target: string;
+  targets?: Record<ConfTarget, string>;
+  schemas?: Record<ConfTarget, string>;
+  target?: string;
   cacheDir: string;
   backupDir: string;
 }
 
 export interface RunRemoveBatchOpts {
   confPaths: string[];
-  target: string;
+  targets?: Record<ConfTarget, string>;
+  schemas?: Record<ConfTarget, string>;
+  target?: string;
   cacheDir: string;
   backupDir: string;
 }
 
 // Run a batch consisting of zero or more --reset paths followed by
 // zero or more module installs. Either side may be empty.
-export async function runBatch({ resets, confPaths, setValues, target, cacheDir, backupDir }: RunBatchOpts): Promise<void> {
+export async function runBatch(opts: RunBatchOpts): Promise<void> {
+  const { resets, confPaths, setValues, cacheDir, backupDir } = opts;
   const modules: BatchModule[] = [];
   for (const cp of confPaths) {
     try {
@@ -79,6 +85,11 @@ export async function runBatch({ resets, confPaths, setValues, target, cacheDir,
     process.exit(1);
   }
 
+  const targetName = resolveBatchTarget(modules, resets);
+  const targets = opts.targets ?? { config: opts.target!, tui: opts.target! };
+  const schemas = opts.schemas ?? { config: SCHEMA_URL, tui: TUI_SCHEMA_URL };
+  const target = targets[targetName];
+  const schemaUrl = schemas[targetName];
   const existing = await loadJsonOrNull(target);
 
   console.log('');
@@ -149,7 +160,7 @@ export async function runBatch({ resets, confPaths, setValues, target, cacheDir,
   }
 
   // ── Compute cumulative new root ──
-  const startRoot: JsonObject = (existing ?? { '$schema': SCHEMA_URL }) as JsonObject;
+  const startRoot: JsonObject = (existing ?? { '$schema': schemaUrl }) as JsonObject;
   let working: JsonObject = structuredCloneSafe(startRoot);
 
   const preBatchKeysByPath: Record<string, Set<string>> = {};
@@ -204,19 +215,19 @@ export async function runBatch({ resets, confPaths, setValues, target, cacheDir,
   const isNoOp = existing !== null && JSON.stringify(working) === JSON.stringify(existing);
   if (isNoOp) {
     console.log('');
-    console.log('  ' + c.dim('· no change — opencode.json untouched, no backup written'));
+    console.log('  ' + c.dim('· no change — target file untouched, no backup written'));
     return;
   }
 
   // ── Pre-write validation: abort if the resulting JSON would be invalid.
-  await validateOrAbort(working, cacheDir, 'pre-write');
+  await validateOrAbort(working, cacheDir, schemaUrl, 'pre-write');
 
   let backupPath: string | null = null;
   try {
     backupPath = await backup(target, backupDir);
   } catch (e) {
     console.error(c.err('error: backup failed: ') + (e instanceof Error ? e.message : String(e)));
-    console.error(c.err('aborting; opencode.json not modified.'));
+    console.error(c.err('aborting; target file not modified.'));
     process.exit(1);
   }
   if (backupPath) console.log('  ' + c.ok('✓') + ' backed up → ' + c.meta(backupPath));
@@ -227,7 +238,7 @@ export async function runBatch({ resets, confPaths, setValues, target, cacheDir,
   await rename(tmp, target);
 
   // ── Post-write sanity check: re-read what we just wrote and re-validate.
-  await validateAfterWrite(target, cacheDir);
+  await validateAfterWrite(target, cacheDir, schemaUrl);
 
   console.log('');
   console.log(renderFooter({ resetStats, modules, backupPath }));
@@ -323,7 +334,8 @@ function renderFooter(
 }
 
 // Atomic multi-module remove: parse all, single confirm, single backup, single write.
-export async function runRemoveBatch({ confPaths, target, cacheDir, backupDir }: RunRemoveBatchOpts): Promise<void> {
+export async function runRemoveBatch(opts: RunRemoveBatchOpts): Promise<void> {
+  const { confPaths, cacheDir, backupDir } = opts;
   const modules: RemoveModule[] = [];
   for (const cp of confPaths) {
     let parsed;
@@ -349,9 +361,14 @@ export async function runRemoveBatch({ confPaths, target, cacheDir, backupDir }:
     modules.push({ meta, body, expandedBody });
   }
 
+  const targetName = resolveBatchTarget(modules, []);
+  const targets = opts.targets ?? { config: opts.target!, tui: opts.target! };
+  const schemas = opts.schemas ?? { config: SCHEMA_URL, tui: TUI_SCHEMA_URL };
+  const target = targets[targetName];
+  const schemaUrl = schemas[targetName];
   const existing = await loadJsonOrNull(target);
   if (existing === null) {
-    console.log(c.dim('opencode.json does not exist — nothing to remove.'));
+    console.log(c.dim('target file does not exist — nothing to remove.'));
     return;
   }
 
@@ -375,11 +392,11 @@ export async function runRemoveBatch({ confPaths, target, cacheDir, backupDir }:
   }
 
   if (JSON.stringify(working) === JSON.stringify(existing)) {
-    console.log('  ' + c.dim('· no change — opencode.json untouched, no backup written'));
+    console.log('  ' + c.dim('· no change — target file untouched, no backup written'));
     return;
   }
 
-  await validateOrAbort(working, cacheDir, 'pre-write');
+  await validateOrAbort(working, cacheDir, schemaUrl, 'pre-write');
 
   let backupPath: string | null = null;
   try { backupPath = await backup(target, backupDir); }
@@ -394,7 +411,7 @@ export async function runRemoveBatch({ confPaths, target, cacheDir, backupDir }:
   await writeFile(tmp, JSON.stringify(working, null, 2) + '\n', 'utf8');
   await rename(tmp, target);
 
-  await validateAfterWrite(target, cacheDir);
+  await validateAfterWrite(target, cacheDir, schemaUrl);
 
   console.log('');
   console.log(c.ok('✓') + ' removed ' + c.bold(`${modules.length} preset${modules.length === 1 ? '' : 's'}`));
@@ -410,8 +427,20 @@ export async function runRemoveBatch({ confPaths, target, cacheDir, backupDir }:
 // Validate the would-be-new config against opencode's JSON schema.
 // On invalid, print the errors and abort BEFORE backup/write.
 // On schema-unavailable (offline + no cache), print a warning and proceed.
-async function validateOrAbort(config: unknown, cacheDir: string, phase: 'pre-write' | 'post-write'): Promise<void> {
-  const result = await validateAgainstSchema(config, cacheDir);
+function resolveBatchTarget(modules: Array<{ meta: ConfMeta }>, resets: string[]): ConfTarget {
+  const targets = new Set(modules.map(m => m.meta.target));
+  if (targets.size > 1) {
+    console.error(c.err('error: ') + 'cannot combine presets with different @target values in one operation.');
+    console.error(c.err('       ') + 'run separate commands for config and tui presets.');
+    process.exit(1);
+  }
+  if (targets.size === 1) return [...targets][0];
+  if (resets.length > 0) return 'config';
+  return 'config';
+}
+
+async function validateOrAbort(config: unknown, cacheDir: string, schemaUrl: string, phase: 'pre-write' | 'post-write'): Promise<void> {
+  const result = await validateAgainstSchema(config, cacheDir, schemaUrl);
   if (result.skipped) {
     console.error(c.warn('⚠  ') + result.errors.join('; '));
     return;
@@ -420,26 +449,26 @@ async function validateOrAbort(config: unknown, cacheDir: string, phase: 'pre-wr
 
   if (phase === 'pre-write') {
     console.error('');
-    console.error(c.err('✗ ') + c.bold('schema validation failed — would have produced an invalid opencode.json'));
+    console.error(c.err('✗ ') + c.bold('schema validation failed — would have produced an invalid target file'));
     for (const e of result.errors.slice(0, 12)) console.error('  ' + c.err(e));
     if (result.errors.length > 12) console.error(c.dim(`  … (+${result.errors.length - 12} more)`));
     console.error('');
-    console.error(c.err('aborting; opencode.json not modified.'));
+    console.error(c.err('aborting; target file not modified.'));
     process.exit(1);
   } else {
     // post-write: shouldn't happen if pre-write passed, but surface as a loud warning.
     console.error('');
-    console.error(c.err('⚠  post-write validation FAILED — opencode.json on disk does not match the schema.'));
+    console.error(c.err('⚠  post-write validation FAILED — target file on disk does not match the schema.'));
     console.error(c.err('   This is unexpected. Errors:'));
     for (const e of result.errors.slice(0, 12)) console.error('  ' + c.err(e));
   }
 }
 
-async function validateAfterWrite(target: string, cacheDir: string): Promise<void> {
+async function validateAfterWrite(target: string, cacheDir: string, schemaUrl: string): Promise<void> {
   try {
     const raw = await readFile(target, 'utf8');
     const parsed = JSON.parse(raw);
-    await validateOrAbort(parsed, cacheDir, 'post-write');
+    await validateOrAbort(parsed, cacheDir, schemaUrl, 'post-write');
   } catch (e) {
     console.error(c.err('⚠  could not re-read written file for post-write check: ') +
       (e instanceof Error ? e.message : String(e)));

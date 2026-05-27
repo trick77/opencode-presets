@@ -17,6 +17,7 @@ describe('parseConfString — required headers', () => {
     assert.equal(meta.author, 'someone');
     assert.equal(meta.version, '0.1.0');
     assert.equal(meta.path, 'a.b.c');
+    assert.equal(meta.target, 'config');
     assert.equal(meta.mode, 'replace');
     assert.deepEqual(meta.fetch, []);
     assert.deepEqual(meta.prompts, []);
@@ -29,6 +30,21 @@ describe('parseConfString — required headers', () => {
       assert.throws(() => parseConfString(broken), new RegExp(`missing required header @${k}`));
     });
   }
+});
+
+describe('parseConfString — @target', () => {
+  test('accepts config and tui targets', () => {
+    for (const target of ['config', 'tui']) {
+      const src = minimalHeader + `// @target: ${target}\n\n{ "x": 1 }`;
+      const { meta } = parseConfString(src);
+      assert.equal(meta.target, target);
+    }
+  });
+
+  test('rejects unknown target', () => {
+    const src = minimalHeader + '// @target: bogus\n\n{}';
+    assert.throws(() => parseConfString(src), /@target must be/);
+  });
 });
 
 describe('parseConfString — multi-line description', () => {

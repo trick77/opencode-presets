@@ -11,6 +11,7 @@ function mod(name: string, prompts: string[]): BatchModule {
     description: '',
     author: '',
     version: '0.0.0',
+    target: 'config',
     path: 'x',
     mode: 'replace',
     fetch: [],
