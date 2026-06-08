@@ -108,7 +108,8 @@ test('install reports existing schema errors before the user approves changes', 
 
   assert.equal(result.code, 0, result.stderr + result.stdout);
   assert.match(result.stderr, /target file is already invalid against the opencode schema/);
-  assert.match(result.stderr, /\/mcp\/playwright/);
+  assert.match(result.stderr, /where: \/mcp\/playwright/);
+  assert.match(result.stderr, /what:\s+must NOT have additional properties/);
   assert.match(result.stdout, /declined/);
   assert.deepEqual(JSON.parse(await readFile(opencodeConfig, 'utf8')), original);
 });
