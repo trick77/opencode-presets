@@ -10,6 +10,7 @@ import { backup } from './backup.js';
 import { c, confirm, promptText, promptSecret, describe, wrap } from './ui.js';
 import type { SetValue } from './cli-args.js';
 import { validateAgainstSchema } from './validate.js';
+import type { ValidationResult } from './validate.js';
 
 const SCHEMA_URL = 'https://opencode.ai/config.json';
 const TUI_SCHEMA_URL = 'https://opencode.ai/tui.json';
@@ -220,7 +221,8 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
   }
 
   // ── Pre-write validation: abort if the resulting JSON would be invalid.
-  await validateOrAbort(working, cacheDir, schemaUrl, 'pre-write');
+  const baselineValidation = existing === null ? null : await validateAgainstSchema(existing, cacheDir, schemaUrl);
+  await validateOrAbort(working, cacheDir, schemaUrl, 'pre-write', baselineValidation);
 
   let backupPath: string | null = null;
   try {
@@ -238,7 +240,7 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
   await rename(tmp, target);
 
   // ── Post-write sanity check: re-read what we just wrote and re-validate.
-  await validateAfterWrite(target, cacheDir, schemaUrl);
+  await validateAfterWrite(target, cacheDir, schemaUrl, baselineValidation);
 
   console.log('');
   console.log(renderFooter({ resetStats, modules, backupPath }));
@@ -396,7 +398,8 @@ export async function runRemoveBatch(opts: RunRemoveBatchOpts): Promise<void> {
     return;
   }
 
-  await validateOrAbort(working, cacheDir, schemaUrl, 'pre-write');
+  const baselineValidation = await validateAgainstSchema(existing, cacheDir, schemaUrl);
+  await validateOrAbort(working, cacheDir, schemaUrl, 'pre-write', baselineValidation);
 
   let backupPath: string | null = null;
   try { backupPath = await backup(target, backupDir); }
@@ -411,7 +414,7 @@ export async function runRemoveBatch(opts: RunRemoveBatchOpts): Promise<void> {
   await writeFile(tmp, JSON.stringify(working, null, 2) + '\n', 'utf8');
   await rename(tmp, target);
 
-  await validateAfterWrite(target, cacheDir, schemaUrl);
+  await validateAfterWrite(target, cacheDir, schemaUrl, baselineValidation);
 
   console.log('');
   console.log(c.ok('✓') + ' removed ' + c.bold(`${modules.length} preset${modules.length === 1 ? '' : 's'}`));
@@ -439,13 +442,33 @@ function resolveBatchTarget(modules: Array<{ meta: ConfMeta }>, resets: string[]
   return 'config';
 }
 
-async function validateOrAbort(config: unknown, cacheDir: string, schemaUrl: string, phase: 'pre-write' | 'post-write'): Promise<void> {
+async function validateOrAbort(
+  config: unknown,
+  cacheDir: string,
+  schemaUrl: string,
+  phase: 'pre-write' | 'post-write',
+  baseline?: ValidationResult | null,
+): Promise<void> {
   const result = await validateAgainstSchema(config, cacheDir, schemaUrl);
   if (result.skipped) {
     console.error(c.warn('⚠  ') + result.errors.join('; '));
     return;
   }
   if (result.ok) return;
+
+  if (
+    baseline &&
+    !baseline.skipped &&
+    !baseline.ok &&
+    sameValidationErrors(baseline.errors, result.errors)
+  ) {
+    if (phase === 'pre-write') {
+      console.error(c.warn('⚠  ') + 'target already has schema validation errors; proceeding because this operation does not add new schema errors');
+      for (const e of result.errors.slice(0, 6)) console.error('  ' + c.warn(e));
+      if (result.errors.length > 6) console.error(c.dim(`  … (+${result.errors.length - 6} more)`));
+    }
+    return;
+  }
 
   if (phase === 'pre-write') {
     console.error('');
@@ -464,15 +487,33 @@ async function validateOrAbort(config: unknown, cacheDir: string, schemaUrl: str
   }
 }
 
-async function validateAfterWrite(target: string, cacheDir: string, schemaUrl: string): Promise<void> {
+async function validateAfterWrite(
+  target: string,
+  cacheDir: string,
+  schemaUrl: string,
+  baseline?: ValidationResult | null,
+): Promise<void> {
   try {
     const raw = await readFile(target, 'utf8');
     const parsed = JSON.parse(raw);
-    await validateOrAbort(parsed, cacheDir, schemaUrl, 'post-write');
+    await validateOrAbort(parsed, cacheDir, schemaUrl, 'post-write', baseline);
   } catch (e) {
     console.error(c.err('⚠  could not re-read written file for post-write check: ') +
       (e instanceof Error ? e.message : String(e)));
   }
+}
+
+function sameValidationErrors(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const remaining = new Map<string, number>();
+  for (const err of a) remaining.set(err, (remaining.get(err) ?? 0) + 1);
+  for (const err of b) {
+    const count = remaining.get(err) ?? 0;
+    if (count === 0) return false;
+    if (count === 1) remaining.delete(err);
+    else remaining.set(err, count - 1);
+  }
+  return remaining.size === 0;
 }
 
 function colorMode(mode: MergeMode): string {
