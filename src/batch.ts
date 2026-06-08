@@ -11,6 +11,7 @@ import { c, confirm, promptText, promptSecret, describe, wrap } from './ui.js';
 import type { SetValue } from './cli-args.js';
 import { validateAgainstSchema } from './validate.js';
 import type { ValidationResult } from './validate.js';
+import { printValidationIssue } from './validation-output.js';
 
 const SCHEMA_URL = 'https://opencode.ai/config.json';
 const TUI_SCHEMA_URL = 'https://opencode.ai/tui.json';
@@ -499,23 +500,6 @@ function warnUnchangedValidationErrors(result: ValidationResult): void {
   console.error(c.warn('⚠  ') + 'target already has schema validation errors; proceeding because this operation does not add new schema errors');
   for (const e of result.errors.slice(0, 6)) printValidationIssue(e, c.warn);
   if (result.errors.length > 6) console.error(c.dim(`  … (+${result.errors.length - 6} more)`));
-}
-
-function printValidationIssue(error: string, color: (s: string) => string): void {
-  const issue = parseValidationIssue(error);
-  console.error('  ' + color('where: ') + issue.where);
-  console.error('  ' + color('what:  ') + issue.what);
-  if (issue.detail) console.error('  ' + color('detail: ') + issue.detail);
-}
-
-function parseValidationIssue(error: string): { where: string; what: string; detail: string } {
-  const match = /^([^:]+):\s*(.*?)(?:\s+(\{.*\}))?$/.exec(error);
-  if (!match) return { where: '<unknown>', what: error, detail: '' };
-  return {
-    where: match[1],
-    what: match[2],
-    detail: match[3] ?? '',
-  };
 }
 
 async function validateAfterWrite(

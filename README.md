@@ -23,6 +23,7 @@ opencode-presets install jdtls-lombok permissions-git-safe
 opencode-presets remove jdtls-lombok              # undo a preset
 opencode-presets install --reset permission ./presets/foo.conf  # wipe then install
 opencode-presets reset permission                 # wipe a section outright
+opencode-presets validate                         # check opencode.json and tui.json
 ```
 
 Bare names are resolved through the preset search path (see "Where
@@ -32,6 +33,12 @@ instead, e.g. `install ./presets/jdtls-lombok.conf`.
 Every change shows a diff and asks before touching anything. A
 backup is written to `~/.cache/opencode-presets/backups/` before
 each write — no auto-pruning, so they pile up.
+
+`validate` checks the configured `opencode.json` and `tui.json`
+against OpenCode's current schemas. Use `validate config`,
+`validate tui`, or `validate all` to choose targets. Missing files
+are skipped in `all` mode; invalid files print labeled `where`,
+`what`, and `detail` lines and exit nonzero.
 
 ### Non-interactive prompt values (`--set` / `--set-env`)
 
