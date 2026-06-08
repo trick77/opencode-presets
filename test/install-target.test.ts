@@ -64,7 +64,7 @@ test('install proceeds when existing schema errors are unchanged by the preset',
   }, 'y\n');
 
   assert.equal(result.code, 0, result.stderr + result.stdout);
-  assert.match(result.stderr, /target already has schema validation errors/);
+  assert.match(result.stderr, /target file is already invalid against the opencode schema/);
   assert.deepEqual(JSON.parse(await readFile(opencodeConfig, 'utf8')), {
     '$schema': 'https://opencode.ai/config.json',
     mcp: {
@@ -78,6 +78,39 @@ test('install proceeds when existing schema errors are unchanged by the preset',
       webfetch: 'ask',
     },
   });
+});
+
+test('install reports existing schema errors before the user approves changes', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'opencode-presets-invalid-preflight-'));
+  const cacheDir = join(dir, 'cache');
+  const opencodeConfig = join(dir, 'opencode.json');
+  const tuiConfig = join(dir, 'tui.json');
+  const original = {
+    '$schema': 'https://opencode.ai/config.json',
+    mcp: {
+      playwright: {
+        type: 'local',
+        command: 'npx',
+        args: ['-y', '@playwright/mcp@latest'],
+      },
+    },
+  };
+
+  await mkdir(cacheDir, { recursive: true });
+  await writeFile(join(cacheDir, 'schema.json'), JSON.stringify(minimalConfigSchema(), null, 2), 'utf8');
+  await writeFile(opencodeConfig, JSON.stringify(original, null, 2) + '\n', 'utf8');
+
+  const result = await runCli(['install', 'permissions-webfetch-ask'], {
+    OPENCODE_CONFIG: opencodeConfig,
+    OPENCODE_TUI_CONFIG: tuiConfig,
+    OPENCODE_PRESETS_CACHE: cacheDir,
+  }, 'n\n');
+
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.match(result.stderr, /target file is already invalid against the opencode schema/);
+  assert.match(result.stderr, /\/mcp\/playwright/);
+  assert.match(result.stdout, /declined/);
+  assert.deepEqual(JSON.parse(await readFile(opencodeConfig, 'utf8')), original);
 });
 
 function runCli(
