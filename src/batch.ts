@@ -472,7 +472,7 @@ async function validateOrAbort(
   if (phase === 'pre-write') {
     console.error('');
     console.error(c.err('✗ ') + c.bold('schema validation failed — would have produced an invalid target file'));
-    for (const e of result.errors.slice(0, 12)) console.error('  ' + c.err(e));
+    for (const e of result.errors.slice(0, 12)) printValidationIssue(e, c.err);
     if (result.errors.length > 12) console.error(c.dim(`  … (+${result.errors.length - 12} more)`));
     console.error('');
     console.error(c.err('aborting; target file not modified.'));
@@ -482,14 +482,14 @@ async function validateOrAbort(
     console.error('');
     console.error(c.err('⚠  post-write validation FAILED — target file on disk does not match the schema.'));
     console.error(c.err('   This is unexpected. Errors:'));
-    for (const e of result.errors.slice(0, 12)) console.error('  ' + c.err(e));
+    for (const e of result.errors.slice(0, 12)) printValidationIssue(e, c.err);
   }
 }
 
 function warnExistingValidationErrors(result: ValidationResult | null): boolean {
   if (!result || result.skipped || result.ok) return false;
   console.error(c.warn('⚠  ') + c.bold('target file is already invalid against the opencode schema'));
-  for (const e of result.errors.slice(0, 6)) console.error('  ' + c.warn(e));
+  for (const e of result.errors.slice(0, 6)) printValidationIssue(e, c.warn);
   if (result.errors.length > 6) console.error(c.dim(`  … (+${result.errors.length - 6} more)`));
   console.error(c.dim('   opencode-presets will proceed only if this operation does not add new schema errors.'));
   return true;
@@ -497,8 +497,25 @@ function warnExistingValidationErrors(result: ValidationResult | null): boolean 
 
 function warnUnchangedValidationErrors(result: ValidationResult): void {
   console.error(c.warn('⚠  ') + 'target already has schema validation errors; proceeding because this operation does not add new schema errors');
-  for (const e of result.errors.slice(0, 6)) console.error('  ' + c.warn(e));
+  for (const e of result.errors.slice(0, 6)) printValidationIssue(e, c.warn);
   if (result.errors.length > 6) console.error(c.dim(`  … (+${result.errors.length - 6} more)`));
+}
+
+function printValidationIssue(error: string, color: (s: string) => string): void {
+  const issue = parseValidationIssue(error);
+  console.error('  ' + color('where: ') + issue.where);
+  console.error('  ' + color('what:  ') + issue.what);
+  if (issue.detail) console.error('  ' + color('detail: ') + issue.detail);
+}
+
+function parseValidationIssue(error: string): { where: string; what: string; detail: string } {
+  const match = /^([^:]+):\s*(.*?)(?:\s+(\{.*\}))?$/.exec(error);
+  if (!match) return { where: '<unknown>', what: error, detail: '' };
+  return {
+    where: match[1],
+    what: match[2],
+    detail: match[3] ?? '',
+  };
 }
 
 async function validateAfterWrite(
