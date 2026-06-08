@@ -92,6 +92,8 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
   const target = targets[targetName];
   const schemaUrl = schemas[targetName];
   const existing = await loadJsonOrNull(target);
+  const baselineValidation = existing === null ? null : await validateAgainstSchema(existing, cacheDir, schemaUrl);
+  const baselineValidationWarned = warnExistingValidationErrors(baselineValidation);
 
   console.log('');
   console.log(renderSummary({ resets, modules, existing, target }));
@@ -221,8 +223,7 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
   }
 
   // ── Pre-write validation: abort if the resulting JSON would be invalid.
-  const baselineValidation = existing === null ? null : await validateAgainstSchema(existing, cacheDir, schemaUrl);
-  await validateOrAbort(working, cacheDir, schemaUrl, 'pre-write', baselineValidation);
+  await validateOrAbort(working, cacheDir, schemaUrl, 'pre-write', baselineValidation, !baselineValidationWarned);
 
   let backupPath: string | null = null;
   try {
@@ -373,6 +374,8 @@ export async function runRemoveBatch(opts: RunRemoveBatchOpts): Promise<void> {
     console.log(c.dim('target file does not exist — nothing to remove.'));
     return;
   }
+  const baselineValidation = await validateAgainstSchema(existing, cacheDir, schemaUrl);
+  const baselineValidationWarned = warnExistingValidationErrors(baselineValidation);
 
   console.log('');
   console.log(c.bold('Target') + c.meta(': ') + target);
@@ -398,8 +401,7 @@ export async function runRemoveBatch(opts: RunRemoveBatchOpts): Promise<void> {
     return;
   }
 
-  const baselineValidation = await validateAgainstSchema(existing, cacheDir, schemaUrl);
-  await validateOrAbort(working, cacheDir, schemaUrl, 'pre-write', baselineValidation);
+  await validateOrAbort(working, cacheDir, schemaUrl, 'pre-write', baselineValidation, !baselineValidationWarned);
 
   let backupPath: string | null = null;
   try { backupPath = await backup(target, backupDir); }
@@ -448,6 +450,7 @@ async function validateOrAbort(
   schemaUrl: string,
   phase: 'pre-write' | 'post-write',
   baseline?: ValidationResult | null,
+  warnUnchanged = true,
 ): Promise<void> {
   const result = await validateAgainstSchema(config, cacheDir, schemaUrl);
   if (result.skipped) {
@@ -462,11 +465,7 @@ async function validateOrAbort(
     !baseline.ok &&
     sameValidationErrors(baseline.errors, result.errors)
   ) {
-    if (phase === 'pre-write') {
-      console.error(c.warn('⚠  ') + 'target already has schema validation errors; proceeding because this operation does not add new schema errors');
-      for (const e of result.errors.slice(0, 6)) console.error('  ' + c.warn(e));
-      if (result.errors.length > 6) console.error(c.dim(`  … (+${result.errors.length - 6} more)`));
-    }
+    if (phase === 'pre-write' && warnUnchanged) warnUnchangedValidationErrors(result);
     return;
   }
 
@@ -485,6 +484,21 @@ async function validateOrAbort(
     console.error(c.err('   This is unexpected. Errors:'));
     for (const e of result.errors.slice(0, 12)) console.error('  ' + c.err(e));
   }
+}
+
+function warnExistingValidationErrors(result: ValidationResult | null): boolean {
+  if (!result || result.skipped || result.ok) return false;
+  console.error(c.warn('⚠  ') + c.bold('target file is already invalid against the opencode schema'));
+  for (const e of result.errors.slice(0, 6)) console.error('  ' + c.warn(e));
+  if (result.errors.length > 6) console.error(c.dim(`  … (+${result.errors.length - 6} more)`));
+  console.error(c.dim('   opencode-presets will proceed only if this operation does not add new schema errors.'));
+  return true;
+}
+
+function warnUnchangedValidationErrors(result: ValidationResult): void {
+  console.error(c.warn('⚠  ') + 'target already has schema validation errors; proceeding because this operation does not add new schema errors');
+  for (const e of result.errors.slice(0, 6)) console.error('  ' + c.warn(e));
+  if (result.errors.length > 6) console.error(c.dim(`  … (+${result.errors.length - 6} more)`));
 }
 
 async function validateAfterWrite(
