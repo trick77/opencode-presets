@@ -12,6 +12,7 @@ import { listConfs } from '../src/list.js';
 import { runBatch, runRemoveBatch } from '../src/batch.js';
 import { parseInstallArgs, validateInstallPolicy, CliArgsError } from '../src/cli-args.js';
 import { validateAgainstSchema } from '../src/validate.js';
+import { printValidationIssue } from '../src/validation-output.js';
 
 const CACHE_DIR = process.env.OPENCODE_PRESETS_CACHE
   ? resolve(process.env.OPENCODE_PRESETS_CACHE)
@@ -81,6 +82,11 @@ async function main(): Promise<void> {
     const positional = rest.filter(a => a !== '-l' && a !== '--long');
     const dirs = positional[0] ? [resolve(positional[0])] : DEFAULT_PRESET_DIRS;
     await listConfs(dirs, { long, repoRoot: REPO_ROOT });
+    return;
+  }
+
+  if (sub === 'validate') {
+    await runValidate(argv.slice(1));
     return;
   }
 
@@ -289,6 +295,78 @@ async function validateWritten(): Promise<void> {
   }
 }
 
+type ValidateTarget = 'config' | 'tui';
+
+async function runValidate(args: string[]): Promise<void> {
+  if (args.length > 1) {
+    printUsage();
+    process.exit(1);
+  }
+  const mode = args[0] ?? 'all';
+  if (mode !== 'all' && mode !== 'config' && mode !== 'tui') {
+    console.error(c.err('error: ') + 'validate target must be config, tui, or all');
+    process.exit(1);
+  }
+
+  const targets: Array<{ kind: ValidateTarget; path: string; schema: string }> = mode === 'all'
+    ? [
+        { kind: 'config', path: TARGET, schema: SCHEMA_URL },
+        { kind: 'tui', path: TUI_TARGET, schema: TUI_SCHEMA_URL },
+      ]
+    : [
+        mode === 'config'
+          ? { kind: 'config', path: TARGET, schema: SCHEMA_URL }
+          : { kind: 'tui', path: TUI_TARGET, schema: TUI_SCHEMA_URL },
+      ];
+
+  let invalid = false;
+  let readError = false;
+  for (const target of targets) {
+    const outcome = await validateTargetFile(target.kind, target.path, target.schema);
+    if (outcome === 'invalid') invalid = true;
+    if (outcome === 'read-error') readError = true;
+  }
+  if (readError) process.exit(2);
+  if (invalid) process.exit(1);
+}
+
+async function validateTargetFile(
+  kind: ValidateTarget,
+  path: string,
+  schema: string,
+): Promise<'valid' | 'invalid' | 'missing' | 'skipped' | 'read-error'> {
+  let parsed: unknown;
+  try {
+    const raw = await readFile(path, 'utf8');
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+      console.log(c.dim(`${kind}: missing — skipped (${path})`));
+      return 'missing';
+    }
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(c.err(`✗ ${kind}: could not read or parse ${path}`));
+    console.error('  ' + c.err(msg));
+    return 'read-error';
+  }
+
+  const result = await validateAgainstSchema(parsed, CACHE_DIR, schema);
+  if (result.skipped) {
+    console.log(c.warn(`⚠ ${kind}: validation skipped (${path})`));
+    for (const e of result.errors) console.error('  ' + c.warn(e));
+    return 'skipped';
+  }
+  if (result.ok) {
+    console.log(c.ok(`✓ ${kind}: valid (${path})`));
+    return 'valid';
+  }
+
+  console.log(c.err(`✗ ${kind}: invalid (${path})`));
+  for (const e of result.errors.slice(0, 12)) printValidationIssue(e, c.err);
+  if (result.errors.length > 12) console.error(c.dim(`  … (+${result.errors.length - 12} more)`));
+  return 'invalid';
+}
+
 function truncJson(value: unknown, max: number): string {
   const s = JSON.stringify(value, null, 2);
   return s.length <= max ? s : s.slice(0, max) + c.dim(` … (${s.length - max} more chars)`);
@@ -317,6 +395,7 @@ function printUsage(): void {
   console.log('  opencode-presets remove <conf>...                remove one or more installed presets');
   console.log('  opencode-presets reset [<path>]                  wipe a path, or wipe everything');
   console.log('                                                   to the minimal baseline if no path');
+  console.log('  opencode-presets validate [config|tui|all]       validate target config files');
   console.log('');
   console.log('Environment:');
   console.log('  OPENCODE_CONFIG         target opencode.json (default ~/.config/opencode/opencode.json)');
