@@ -98,6 +98,7 @@ on a readline for the next.
 | `permissions-build-tools` | Permissions | merge | Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |
 | `permissions-container-info` | Permissions | merge | Read-only docker, podman, oc inspection commands |
 | `permissions-toolchain-info` | Permissions | merge | Version probes for common dev toolchains |
+| `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
 | `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
 
