@@ -37,8 +37,5 @@ test('ships a runaway guard preset with step limits for built-in agents', async 
     explore: {
       steps: 10,
     },
-    scout: {
-      steps: 10,
-    },
   });
 });
