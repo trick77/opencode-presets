@@ -39,3 +39,41 @@ test('ships a runaway guard preset with step limits for built-in agents', async 
     },
   });
 });
+
+test('ships a litellm plugin preset that appends the runtime-discovery plugin', async () => {
+  const preset = resolve(process.cwd(), 'presets/plugin-litellm.conf');
+
+  const { meta, body } = await parseConf(preset);
+
+  assert.equal(meta.name, 'plugin-litellm');
+  assert.equal(meta.path, 'plugin');
+  assert.equal(meta.mode, 'append');
+  assert.deepEqual(body, ['opencode-plugin-litellm@0.5.0']);
+});
+
+test('ships a litellm provider preset that points at a proxy URL, no models', async () => {
+  const preset = resolve(process.cwd(), 'presets/provider-litellm.conf');
+
+  const { meta, body } = await parseConf(preset);
+
+  assert.equal(meta.name, 'provider-litellm');
+  assert.equal(meta.path, 'provider.litellm');
+  assert.equal(meta.mode, 'replace');
+
+  // Only the base URL is prompted; the key comes from $LITELLM_API_KEY.
+  assert.deepEqual(
+    meta.prompts.map((p) => ({ name: p.name, type: p.type })),
+    [{ name: 'baseURL', type: 'text' }],
+  );
+
+  // No `models` block — the plugin discovers models at runtime.
+  // Body keeps the {{prompt:...}} placeholder until install-time expansion.
+  assert.deepEqual(body, {
+    npm: '@ai-sdk/openai-compatible',
+    name: 'LiteLLM (proxy)',
+    options: {
+      baseURL: '{{prompt:baseURL}}',
+      apiKey: '{env:LITELLM_API_KEY}',
+    },
+  });
+});
