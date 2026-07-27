@@ -60,20 +60,24 @@ test('ships a litellm provider preset that points at a proxy URL, no models', as
   assert.equal(meta.path, 'provider.litellm');
   assert.equal(meta.mode, 'replace');
 
-  // Only the base URL is prompted; the key comes from $LITELLM_API_KEY.
+  // The key is prompted for as a secret (hidden input) and written into the
+  // config, matching how mcp-http handles header credentials.
   assert.deepEqual(
     meta.prompts.map((p) => ({ name: p.name, type: p.type })),
-    [{ name: 'baseURL', type: 'text' }],
+    [
+      { name: 'baseURL', type: 'text' },
+      { name: 'apiKey', type: 'secret' },
+    ],
   );
 
   // No `models` block — the plugin discovers models at runtime.
-  // Body keeps the {{prompt:...}} placeholder until install-time expansion.
+  // Body keeps the {{prompt:...}} placeholders until install-time expansion.
   assert.deepEqual(body, {
     npm: '@ai-sdk/openai-compatible',
     name: 'LiteLLM (proxy)',
     options: {
       baseURL: '{{prompt:baseURL}}',
-      apiKey: '{env:LITELLM_API_KEY}',
+      apiKey: '{{prompt:apiKey}}',
     },
   });
 });
