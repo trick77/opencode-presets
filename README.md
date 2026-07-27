@@ -91,7 +91,7 @@ on a readline for the next.
 | `mcp-intellij` | MCP | replace | Add the JetBrains IDE MCP server (loopback HTTP, default port 64342) |
 | `mcp-playwright` | MCP | replace | Add the Playwright MCP server (`@playwright/mcp`, local stdio via npx) |
 | `mcp-vscode` | MCP | replace | Add the VS Code MCP server via the `JuehangQin.vscode-mcp-server` extension (loopback HTTP, default port 3000) |
-| `plugin-litellm` | Plugin | append | Add `opencode-plugin-litellm` — discovers a LiteLLM proxy's models at runtime and adds them to the picker (localhost auto-detected; key from `$LITELLM_API_KEY`) |
+| `plugin-litellm` | Plugin | append | Add `opencode-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing instead of `$0` (localhost auto-detected; key from `$LITELLM_API_KEY`) |
 | `provider-litellm` | Provider | replace | Point the `litellm` provider at a custom/remote proxy URL for `plugin-litellm` (prompts for base URL; key via `$LITELLM_API_KEY`, no models list) |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows) |
 | `permissions-git-safe` | Permissions | merge | Read-only git commands (status, diff, log, branch --list, fetch, etc.) |

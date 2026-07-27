@@ -48,7 +48,7 @@ test('ships a litellm plugin preset that appends the runtime-discovery plugin', 
   assert.equal(meta.name, 'plugin-litellm');
   assert.equal(meta.path, 'plugin');
   assert.equal(meta.mode, 'append');
-  assert.deepEqual(body, ['opencode-plugin-litellm@0.5.0']);
+  assert.deepEqual(body, ['opencode-litellm-pricing@0.1.1']);
 });
 
 test('ships a litellm provider preset that points at a proxy URL, no models', async () => {
