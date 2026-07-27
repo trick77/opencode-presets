@@ -88,6 +88,8 @@ on a readline for the next.
 | `jdtls-clean-workspace` | LSP | replace | Stops jdtls from writing `.project`/`.classpath`/etc. into your project root |
 | `mcp-http` | MCP | replace | Add an HTTP MCP server (localhost or remote) with one custom header (prompts for id, URL, header name, header value) |
 | `mcp-http-noauth` | MCP | replace | Add an HTTP MCP server (localhost or remote) without auth headers (prompts for id, URL) |
+| `mcp-litellm` | MCP | replace | Add a LiteLLM proxy's MCP gateway as a remote MCP server (prompts for gateway URL and LiteLLM key; auth via `x-litellm-api-key`, no login flow) |
+| `mcp-litellm-passthrough` | MCP | replace | Add one `x-mcp-<alias>-<header>` passthrough header to the `mcp.litellm` server so an upstream MCP server authenticates as you (run once per header; install `mcp-litellm` first) |
 | `mcp-intellij` | MCP | replace | Add the JetBrains IDE MCP server (loopback HTTP, default port 64342) |
 | `mcp-playwright` | MCP | replace | Add the Playwright MCP server (`@playwright/mcp`, local stdio via npx) |
 | `mcp-vscode` | MCP | replace | Add the VS Code MCP server via the `JuehangQin.vscode-mcp-server` extension (loopback HTTP, default port 3000) |
