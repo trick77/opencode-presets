@@ -41,11 +41,11 @@ test('ships a runaway guard preset with step limits for built-in agents', async 
 });
 
 test('ships a litellm plugin preset that appends the runtime-discovery plugin', async () => {
-  const preset = resolve(process.cwd(), 'presets/plugin-litellm.conf');
+  const preset = resolve(process.cwd(), 'presets/plugin-litellm-pricing.conf');
 
   const { meta, body } = await parseConf(preset);
 
-  assert.equal(meta.name, 'plugin-litellm');
+  assert.equal(meta.name, 'plugin-litellm-pricing');
   assert.equal(meta.path, 'plugin');
   assert.equal(meta.mode, 'append');
   assert.deepEqual(body, ['opencode-litellm-pricing@0.1.1']);
