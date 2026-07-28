@@ -35,10 +35,12 @@ jobs:
             exit 1
           fi
       - name: Verify this version is not already on npm
+        id: npm-guard
         run: |
           name=$(node -p "require('./package.json').name")
           pkg=$(node -p "require('./package.json').version")
           if npm view "$name@$pkg" version --silent >/dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
             echo "::error::$name@$pkg is already published. npm rejects duplicate versions — bump and tag again." >&2
             exit 1
           fi
@@ -55,6 +57,11 @@ jobs:
       # when the publish itself did not succeed. If the package went out and a
       # later step failed, the tag must stay, because npm will not accept the
       # same version twice and that release has to be finished by hand.
+      #
+      # The npm guard is excluded on purpose. A single tag push can produce two
+      # runs; concurrency queues the second one, so it starts after the first
+      # has already published and trips the guard. That run must not delete the
+      # tag its sibling just released from.
       - name: Drop the tag if nothing was published
-        if: failure() && steps.publish.outcome != 'success'
+        if: failure() && steps.publish.outcome != 'success' && steps.npm-guard.outputs.already != 'true'
         run: git push --delete origin "$GITHUB_REF_NAME"
