@@ -84,18 +84,18 @@ on a readline for the next.
 
 | Preset | Category | Mode | Description |
 | --- | --- | --- | --- |
-| `jdtls-lombok` | LSP | replace | Makes jdtls lombok-aware via `-javaagent` flag |
+| `jdtls-lombok` | LSP | replace | Makes jdtls lombok-aware via `-javaagent` flag (pinned to lombok 1.18.46, sha256-verified) |
 | `jdtls-clean-workspace` | LSP | replace | Stops jdtls from writing `.project`/`.classpath`/etc. into your project root |
 | `mcp-http` | MCP | replace | Add an HTTP MCP server (localhost or remote) with one custom header (prompts for id, URL, header name, header value) |
 | `mcp-http-noauth` | MCP | replace | Add an HTTP MCP server (localhost or remote) without auth headers (prompts for id, URL) |
 | `mcp-intellij` | MCP | replace | Add the JetBrains IDE MCP server (loopback HTTP, default port 64342) |
 | `mcp-litellm` | MCP | replace | Add a LiteLLM proxy's MCP gateway as a remote MCP server (prompts for gateway URL and LiteLLM key; auth via `x-litellm-api-key`, no login flow) |
 | `mcp-litellm-passthrough` | MCP | replace | Add one `x-mcp-<alias>-<header>` passthrough header to the `mcp.litellm` server so an upstream MCP server authenticates as you (run once per header; install `mcp-litellm` first) |
-| `mcp-playwright` | MCP | replace | Add the Playwright MCP server (`@playwright/mcp`, local stdio via npx) |
+| `mcp-playwright` | MCP | replace | Add the Playwright MCP server (`@playwright/mcp`, local stdio via npx; pinned to an exact version) |
 | `mcp-vscode` | MCP | replace | Add the VS Code MCP server via the `JuehangQin.vscode-mcp-server` extension (loopback HTTP, default port 3000) |
-| `plugin-litellm-pricing` | Plugin | append | Add `opencode-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing instead of `$0` (pair with `provider-litellm` to set the proxy URL and key) |
+| `plugin-litellm-pricing` | Plugin | append | Add `opencode-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing instead of `$0` (pair with `provider-litellm` to set the proxy URL and key; pinned to an exact version) |
 | `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing` (prompts for base URL and API key; no models list) |
-| `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows) |
+| `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pinned to an exact upstream tag) |
 | `permissions-git-safe` | Permissions | merge | Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
 | `permissions-webfetch-ask` | Permissions | merge | Requires approval before opencode uses the webfetch tool |
 | `permissions-shell-safe` | Permissions | merge | Low-risk shell commands (ls, cat, grep, rg, jq, yq, etc.) |

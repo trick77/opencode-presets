@@ -99,7 +99,7 @@ chars. When adding entries to `permission.bash`:
 - TypeScript with `strict: true`, compiled by `tsc` to `dist/`. Source in `bin/` and `src/`.
 - Internal imports use `.js` extensions even though source is `.ts` (NodeNext convention; tsc emits the `.js` files at the matching paths).
 - Edits → `npm run build` → `node dist/bin/...` (or `npm link` once for global use).
-- One runtime dep: `chalk`. Don't add more without justification.
+- Two runtime deps: `chalk`, `ajv`. Don't add more without justification.
 - Atomic writes: `writeFile(tmp); rename(tmp, final)`. Never write the
   target in place.
 - All paths use `node:path`'s `resolve`/`join`; never string-concat
@@ -129,6 +129,16 @@ Do NOT add any of the following without an explicit human review:
   or `devDependencies`. Pin exact versions so `package-lock.json` is
   the only source of truth.
 - New runtime dependencies in general — see "Code conventions" above.
+
+Third-party code in a preset (`plugin`, `mcp` command, `@fetch`) → pin
+exact version, git tag, or SHA. Unpinned ref or `@latest` → justify in
+`@description`. opencode caches by full spec string and never re-checks,
+so an unpinned ref freezes at first resolve; changing the string is what
+triggers the re-fetch.
+
+`@fetch` → always `sha256=`, and version the dest filename too;
+`fetchAsset` skips an existing dest, so reusing the filename makes a bump
+a no-op. Verify the hash against a second source before committing.
 
 The `npm publish` step must pass `--provenance` so the published
 tarball carries SLSA build attestation verifiable via
