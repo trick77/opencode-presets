@@ -280,10 +280,12 @@ function renderSummary(
     }
     const totalFetches = modules.reduce((n, m) => n + m.meta.fetch.length, 0);
     const totalPrompts = modules.reduce((n, m) => n + m.meta.prompts.length, 0);
-    if (totalFetches > 0 || totalPrompts > 0) {
+    const totalPins = modules.reduce((n, m) => n + m.meta.pins.length, 0);
+    if (totalFetches > 0 || totalPrompts > 0 || totalPins > 0) {
       const bits: string[] = [];
       if (totalFetches > 0) bits.push(`${totalFetches} fetch${totalFetches === 1 ? '' : 'es'}`);
       if (totalPrompts > 0) bits.push(`${totalPrompts} prompt${totalPrompts === 1 ? '' : 's'}`);
+      if (totalPins > 0) bits.push(`${totalPins} pin${totalPins === 1 ? '' : 's'}`);
       lines.push('    ' + c.dim(bits.join(', ')));
     }
   }
