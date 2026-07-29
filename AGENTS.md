@@ -2,9 +2,8 @@
 
 ## Testing — never touch the real config
 
-Always point the CLI at a temp target/cache. Never run install/remove/reset
-against the user's actual `~/.config/opencode/opencode.json` or
-`~/.config/opencode/tui.json`.
+Point the CLI at a temp target/cache. Never install/remove/reset against the
+user's real `~/.config/opencode/{opencode,tui}.json`.
 
 ```sh
 rm -rf /tmp/oc-test && mkdir -p /tmp/oc-test/cache /tmp/oc-test/cfg
@@ -14,132 +13,108 @@ export OPENCODE_PRESETS_CACHE=/tmp/oc-test/cache
 npm run build && node dist/bin/opencode-presets.js install ./presets/<name>.conf
 ```
 
-For non-interactive runs prefer `--set NAME=VALUE` (or `--set-env
-NAME=ENV_VAR` for secrets) over piping answers via `printf`/`yes`.
-The interactive readline path still works — the CLI uses one shared
-session with a buffered queue — but `--set` is sturdier in scripts.
+Non-interactive → `--set NAME=VALUE`, `--set-env NAME=ENV_VAR` for secrets.
+Not piped `printf`/`yes` (works, but fragile).
 
-## Conf module format — required headers
+## Conf format — headers
 
-Every `presets/*.conf` must start with these directives (order doesn't
-matter):
+Order irrelevant.
 
 - `@name`, `@description`, `@author`, `@version`, `@path` — required.
-- `@target` — `config` (default, writes `opencode.json`) | `tui` (writes `tui.json`).
+- `@description` — 1–2 sentences: what it does, what it touches. No rationale,
+  history, troubleshooting. Cap 450 chars (tested).
+- `@target` — `config` (default, `opencode.json`) | `tui` (`tui.json`).
 - `@mode` — `replace` (default) | `merge` | `merge-overwrite` | `append`.
 - `@fetch: URL -> dest [sha256=hex]` — repeatable.
-- `@prompt: name | type | help | default` — repeatable; type ∈
-  `text`/`secret`. Help and default are optional. Default is
-  forbidden when type is `secret`. When the user enters an empty
-  line, the default is used.
+- `@pins: name version` — repeatable, one per pinned third-party artifact.
+  Version must also appear in body or `@fetch` (tested).
+- `@prompt: name | type | help | default` — repeatable; type `text`/`secret`.
+  Help/default optional. Default forbidden for `secret`. Empty input → default.
 
-Body is JSONC. After parsing it must be valid JSON of the shape the
-leaf at `@path` expects (object/array/scalar all allowed for `replace`;
-must be an object for `merge`/`merge-overwrite`; must be an array for
-`append`).
+Body is JSONC, must parse to JSON matching the `@path` leaf: any shape for
+`replace`, object for `merge`/`merge-overwrite`, array for `append`.
+Substitutions in body and `@path`: `{{cache}}`, `{{prompt:<name>}}`.
 
-Substitutions inside body and inside `@path`: `{{cache}}`,
-`{{prompt:<name>}}`.
+## Merge stays additive
 
-## Merge semantics — preserve `merge` as additive
+`merge` MUST NOT overwrite existing keys — existing values win, only missing
+keys added. Users rely on this to keep hand-edits and other modules' rules.
+Need overwrite → `merge-overwrite`, called out in `@description`. Never turn
+`merge` into deep-merge-overwrite.
 
-`merge` mode MUST NOT overwrite existing keys. Existing values always
-win; only missing keys are added. This is the contract users rely on
-to keep their hand-edits and other modules' rules intact.
+## Backups
 
-If you need overwrite semantics for something, use `merge-overwrite`
-explicitly and call it out in the module's `@description`. Do not
-"helpfully" change `merge` to deep-merge-overwrite.
+One before every real write; skipped on byte-equal no-op. None for `--help`,
+`list`, declined prompts. Path `<cache>/backups/`, ms-precision UTC. No
+auto-pruning.
 
-## Backups — skip on no-op
+## Dynamic-path removal
 
-A backup must be written before every actual write to a target config file,
-and skipped when the apply is a byte-equal no-op. Don't introduce
-backups for `--help`, `list`, or declined prompts.
-
-Backup path format is millisecond-precision UTC and lives under
-`<cache>/backups/`. Don't add auto-pruning.
-
-## Removal of dynamic-path modules
-
-If a module's `@path` contains `{{prompt:…}}`, the `remove` flow
-cannot resolve it (we don't re-collect prompts at remove time).
-Reject it with a message pointing the user at
-`opencode-presets reset <resolved-path>`. Don't try to be clever and
-re-prompt — secrets in particular must never be asked again.
+`@path` with `{{prompt:…}}` → `remove` can't resolve it (prompts not
+re-collected). Reject, point at `opencode-presets reset <resolved-path>`.
+Never re-prompt — secrets must not be asked twice.
 
 ## Permission rule curation
 
-opencode's pattern matcher is whole-line glob with `*` matching any
-chars. When adding entries to `permission.bash`:
+Matcher is whole-line glob; `*` matches any chars.
 
-- Wildcards must not let a destructive subcommand or flag through.
-  `git branch *` would expose `git branch -D`; use `git branch --list *`
-  instead. `find *` exposes `-delete`/`-exec`; skip blanket.
-- Avoid commands prone to in-place file mutation via flags
-  (`sed -i`, `gawk -i inplace`, Mike Farah's `yq -i`) unless the
-  module's description explicitly accepts the trade-off.
-- Avoid interactive viewers (`less`, `more`, `vim`, `man`, `tldr`)
-  and unbounded streamers (`docker stats` without `--no-stream`) —
-  they hang the agent.
-- "Harmless" requires *also* "agent actually invokes this often".
-  No `whoami`, `uptime`, `hostname`, `uname` filler.
+- No wildcard admitting a destructive subcommand/flag. `git branch *` exposes
+  `-D` → use `git branch --list *`. `find *` exposes `-delete`/`-exec` → skip.
+- No in-place mutation flags (`sed -i`, `gawk -i inplace`, Mike Farah's
+  `yq -i`) unless the description accepts the trade-off.
+- No interactive viewers (`less`, `more`, `vim`, `man`, `tldr`) or unbounded
+  streamers (`docker stats` without `--no-stream`) — they hang the agent.
+- Harmless isn't enough; the agent must *also* invoke it often. No `whoami`,
+  `uptime`, `hostname`, `uname` filler.
 
-## File naming and placement
+## Naming and placement
 
-- New modules go in `presets/` with a category prefix:
-  `permissions-*`, `mcp-*`, `lsp-*`, `tui-*`, etc.
-- One concern per module. If a module would touch two unrelated
-  paths, split it.
-- Choose `@path` deep enough that two unrelated modules don't overlap.
-  Two modules writing to the same path in `replace` mode collide.
+- `presets/<category>-*.conf`: `permissions-`, `mcp-`, `lsp-`, `tui-`.
+- One concern per module; two unrelated paths → split.
+- `@path` deep enough that modules don't overlap — same path in `replace`
+  collides.
 
 ## Code conventions
 
-- TypeScript with `strict: true`, compiled by `tsc` to `dist/`. Source in `bin/` and `src/`.
-- Internal imports use `.js` extensions even though source is `.ts` (NodeNext convention; tsc emits the `.js` files at the matching paths).
-- Edits → `npm run build` → `node dist/bin/...` (or `npm link` once for global use).
-- Two runtime deps: `chalk`, `ajv`. Don't add more without justification.
-- Atomic writes: `writeFile(tmp); rename(tmp, final)`. Never write the
-  target in place.
-- All paths use `node:path`'s `resolve`/`join`; never string-concat
-  with `/`.
-- Errors that reach the user: prefix with `c.err('error: ')`. Use
-  exit codes 1 (user error) / 2 (parse/internal).
+- TypeScript `strict: true`, `tsc` → `dist/`. Source in `bin/`, `src/`.
+- Internal imports use `.js` extensions though source is `.ts` (NodeNext).
+- Edit → `npm run build` → `node dist/bin/...`.
+- Runtime deps are `chalk` + `ajv`. No more without justification.
+- Atomic writes: `writeFile(tmp); rename(tmp, final)`. Never write in place.
+- Paths via `node:path` `resolve`/`join`; never string-concat `/`.
+- User-facing errors prefixed `c.err('error: ')`. Exit 1 user error,
+  2 parse/internal.
 
-## What not to add
+## Don't add
 
 - `find`, `xargs`, `bash`, `sh`, `./<anything>` to permission allowlists.
-- Auto-update / auto-fetch behaviour for modules. The user opts in.
-- Telemetry, network calls beyond declared `@fetch` URLs.
-- A second prompt UI library. The current `src/ui.ts` handles it.
+- Auto-update / auto-fetch for modules. User opts in.
+- Telemetry, or network calls beyond declared `@fetch` URLs.
+- A second prompt UI library — `src/ui.ts` handles it.
 - Backups under `~/.config/opencode/`; they belong in the cache dir.
 
-## package.json — supply-chain hygiene
+## package.json — supply chain
 
-Do NOT add any of the following without an explicit human review:
+No explicit human review → don't add:
 
-- An `optionalDependencies` block, or a `dependencies` entry using a
-  `git+`, `http(s):`, `file:`, or tarball specifier. The May 2026
-  TanStack worm shipped its payload via exactly this shape.
-- A `prepare`, `preinstall`, `postinstall`, or other install-time
-  lifecycle script. This package's only lifecycle scripts are
-  `prepare`/`prepublishOnly` running `tsc`; don't broaden them.
-- Floating version ranges (`^`, `~`, `*`, `latest`) in `dependencies`
-  or `devDependencies`. Pin exact versions so `package-lock.json` is
-  the only source of truth.
-- New runtime dependencies in general — see "Code conventions" above.
+- `optionalDependencies`, or a `dependencies` entry with a `git+`, `http(s):`,
+  `file:`, or tarball specifier. The May 2026 TanStack worm shipped its
+  payload via exactly this shape.
+- `prepare`, `preinstall`, `postinstall`, or other install-time lifecycle
+  scripts. Only `prepare`/`prepublishOnly` running `tsc` exist; don't broaden.
+- Floating ranges (`^`, `~`, `*`, `latest`) in deps. Pin exact so
+  `package-lock.json` is the only source of truth.
+- New runtime dependencies at all — see Code conventions.
 
-Third-party code in a preset (`plugin`, `mcp` command, `@fetch`) → pin
-exact version, git tag, or SHA. Unpinned ref or `@latest` → justify in
-`@description`. opencode caches by full spec string and never re-checks,
-so an unpinned ref freezes at first resolve; changing the string is what
-triggers the re-fetch.
+Third-party code in a preset (`plugin`, `mcp` command, `@fetch`) → pin exact
+version, git tag, or SHA, recorded in `@pins`. Unpinned or `@latest` → justify
+in `@description`. opencode caches by full spec string and never re-checks, so
+an unpinned ref freezes at first resolve; changing the string triggers the
+re-fetch.
 
-`@fetch` → always `sha256=`, and version the dest filename too;
-`fetchAsset` skips an existing dest, so reusing the filename makes a bump
-a no-op. Verify the hash against a second source before committing.
+`@fetch` → always `sha256=`, and version the dest filename; `fetchAsset` skips
+an existing dest, so reusing the filename makes a bump a no-op. Verify the hash
+against a second source before committing.
 
-The `npm publish` step must pass `--provenance` so the published
-tarball carries SLSA build attestation verifiable via
+`npm publish` must pass `--provenance` — SLSA attestation, verifiable via
 `npm audit signatures`.

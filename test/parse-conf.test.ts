@@ -21,6 +21,7 @@ describe('parseConfString — required headers', () => {
     assert.equal(meta.mode, 'replace');
     assert.deepEqual(meta.fetch, []);
     assert.deepEqual(meta.prompts, []);
+    assert.deepEqual(meta.pins, []);
     assert.deepEqual(body, { x: 1 });
   });
 
@@ -60,6 +61,33 @@ describe('parseConfString — multi-line description', () => {
 { "x": 1 }`;
     const { meta } = parseConfString(src);
     assert.equal(meta.description, 'line one line two line three');
+  });
+});
+
+describe('parseConfString — @pins', () => {
+  test('parses a scoped package name and version', () => {
+    const src = minimalHeader + '// @pins: @playwright/mcp 0.0.78\n\n{}';
+    const { meta } = parseConfString(src);
+    assert.deepEqual(meta.pins, [{ name: '@playwright/mcp', version: '0.0.78' }]);
+  });
+
+  test('accumulates repeated @pins lines', () => {
+    const src = minimalHeader + '// @pins: lombok 1.18.46\n// @pins: superpowers 6.2.0\n\n{}';
+    const { meta } = parseConfString(src);
+    assert.deepEqual(meta.pins, [
+      { name: 'lombok', version: '1.18.46' },
+      { name: 'superpowers', version: '6.2.0' },
+    ]);
+  });
+
+  test('rejects a name without a version', () => {
+    const src = minimalHeader + '// @pins: lombok\n\n{}';
+    assert.throws(() => parseConfString(src), /@pins must be "name version"/);
+  });
+
+  test('rejects more than two fields', () => {
+    const src = minimalHeader + '// @pins: lombok 1.18.46 extra\n\n{}';
+    assert.throws(() => parseConfString(src), /@pins must be "name version"/);
   });
 });
 

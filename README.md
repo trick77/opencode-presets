@@ -84,18 +84,18 @@ on a readline for the next.
 
 | Preset | Category | Mode | Description |
 | --- | --- | --- | --- |
-| `jdtls-lombok` | LSP | replace | Makes jdtls lombok-aware via `-javaagent` flag (pinned to lombok 1.18.46, sha256-verified) |
+| `jdtls-lombok` | LSP | replace | Makes jdtls lombok-aware via `-javaagent` flag (pins lombok 1.18.46, sha256-verified) |
 | `jdtls-clean-workspace` | LSP | replace | Stops jdtls from writing `.project`/`.classpath`/etc. into your project root |
 | `mcp-http` | MCP | replace | Add an HTTP MCP server (localhost or remote) with one custom header (prompts for id, URL, header name, header value) |
 | `mcp-http-noauth` | MCP | replace | Add an HTTP MCP server (localhost or remote) without auth headers (prompts for id, URL) |
 | `mcp-intellij` | MCP | replace | Add the JetBrains IDE MCP server (loopback HTTP, default port 64342) |
 | `mcp-litellm` | MCP | replace | Add a LiteLLM proxy's MCP gateway as a remote MCP server (prompts for gateway URL and LiteLLM key; auth via `x-litellm-api-key`, no login flow) |
 | `mcp-litellm-passthrough` | MCP | replace | Add one `x-mcp-<alias>-<header>` passthrough header to the `mcp.litellm` server so an upstream MCP server authenticates as you (run once per header; install `mcp-litellm` first) |
-| `mcp-playwright` | MCP | replace | Add the Playwright MCP server (`@playwright/mcp`, local stdio via npx; pinned to an exact version) |
+| `mcp-playwright` | MCP | replace | Add the Playwright MCP server (local stdio via npx; pins `@playwright/mcp` 0.0.78) |
 | `mcp-vscode` | MCP | replace | Add the VS Code MCP server via the `JuehangQin.vscode-mcp-server` extension (loopback HTTP, default port 3000) |
-| `plugin-litellm-pricing` | Plugin | append | Add `opencode-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing instead of `$0` (pair with `provider-litellm` to set the proxy URL and key; pinned to an exact version) |
+| `plugin-litellm-pricing` | Plugin | append | Add `opencode-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing instead of `$0` (pair with `provider-litellm` to set the proxy URL and key; pins `opencode-litellm-pricing` 0.2.0) |
 | `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing` (prompts for base URL and API key; no models list) |
-| `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pinned to an exact upstream tag) |
+| `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.2.0`) |
 | `permissions-git-safe` | Permissions | merge | Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
 | `permissions-webfetch-ask` | Permissions | merge | Requires approval before opencode uses the webfetch tool |
 | `permissions-shell-safe` | Permissions | merge | Low-risk shell commands (ls, cat, grep, rg, jq, yq, etc.) |
@@ -191,7 +191,7 @@ an absolute path.
 
 ```jsonc
 // @name: my-preset
-// @description: one paragraph of what this fixes / sets up.
+// @description: one or two sentences on what this fixes / sets up.
 // @author: you <you@example.com>
 // @version: 1.0.0
 // @target: config
@@ -209,5 +209,18 @@ and `tui` presets; run separate commands for those.
 `@prompt: name | text|secret | help` collects input at install time.
 Both repeatable. Reference fetched files as `{{cache}}/<name>` and
 prompt values as `{{prompt:<name>}}` in the body or `@path`.
+
+`@pins: <name> <version>` records a third-party artifact the preset
+installs at an exact version — the npm package behind an `mcp` command,
+a plugin spec, a `@fetch`ed jar. Optional and repeatable. It's shown on
+the install confirmation and in `list -l`, so you can see what a preset
+drags in before saying yes:
+
+```jsonc
+// @pins: @playwright/mcp 0.0.78
+```
+
+The version string must also appear in the body or `@fetch` line it
+describes; a test enforces that, so a bump can't land on one side only.
 
 See the existing `presets/*.conf` for working examples.

@@ -1,6 +1,6 @@
 import { readdir, stat } from 'node:fs/promises';
 import { join, basename, resolve } from 'node:path';
-import { parseConf } from './parse-conf.js';
+import { parseConf, type PinDirective } from './parse-conf.js';
 import { c, wrap as wrapText } from './ui.js';
 
 interface Row {
@@ -10,6 +10,7 @@ interface Row {
   mode: string;
   path: string;
   description: string;
+  pins: PinDirective[];
   file: string;
   source: string;
   error?: string;
@@ -47,6 +48,7 @@ export async function listConfs(dirs: string[], { long = false, repoRoot }: { lo
           mode: meta.mode,
           path: meta.path,
           description: meta.description,
+          pins: meta.pins,
           file: f,
           source: dir,
         });
@@ -59,6 +61,7 @@ export async function listConfs(dirs: string[], { long = false, repoRoot }: { lo
           mode: '-',
           path: '-',
           description: '',
+          pins: [],
           file: f,
           source: dir,
           error: msg.replace(f + ':', '').trim(),
@@ -122,6 +125,11 @@ function printTable(rows: Row[], dirs: string[], long: boolean, repoRoot: string
 
     if (long && r.ok && r.description) {
       console.log(wrapText(r.description, 76, '    '));
+    }
+    if (long && r.ok) {
+      for (const p of r.pins) {
+        console.log(c.dim(`    pins: ${p.name} ${p.version}`));
+      }
     }
   }
 }

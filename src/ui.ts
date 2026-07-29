@@ -77,6 +77,11 @@ export function describe(
   out.push('  ' + c.bold('Target') + c.meta(' : ') + target);
   out.push('  ' + c.bold('Path  ') + c.meta(' : ') + meta.path);
   out.push('  ' + c.bold('Mode  ') + c.meta(' : ') + meta.mode);
+  if (action === 'install' && meta.pins.length > 0) {
+    for (const p of meta.pins) {
+      out.push('  ' + c.bold('Pins  ') + c.meta(' : ') + p.name + c.meta(' @ ') + p.version);
+    }
+  }
   if (action === 'install' && meta.fetch.length > 0) {
     for (const f of meta.fetch) {
       out.push('  ' + c.bold('Fetch ') + c.meta(' : ') + f.url);

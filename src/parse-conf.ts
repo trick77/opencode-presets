@@ -17,6 +17,12 @@ export interface PromptDirective {
   default?: string;
 }
 
+// A third-party artifact this preset installs at an exact version.
+export interface PinDirective {
+  name: string;
+  version: string;
+}
+
 export interface ConfMeta {
   name: string;
   description: string;
@@ -27,6 +33,7 @@ export interface ConfMeta {
   mode: MergeMode;
   fetch: FetchDirective[];
   prompts: PromptDirective[];
+  pins: PinDirective[];
 }
 
 export interface ParsedConf {
@@ -54,6 +61,7 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
     mode: 'replace',
     fetch: [],
     prompts: [],
+    pins: [],
   };
 
   let i = 0;
@@ -95,6 +103,9 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
           break;
         case 'prompt':
           meta.prompts.push(parsePrompt(value, filePath));
+          break;
+        case 'pins':
+          meta.pins.push(parsePin(value, filePath));
           break;
         default:
           throw parseError(filePath, i + 1, `unknown header key @${key}`);
@@ -152,6 +163,15 @@ function parsePrompt(value: string, filePath: string): PromptDirective {
     throw parseError(filePath, 0, `@prompt default value is not allowed for type "secret" (got "${value}")`);
   }
   return def !== undefined ? { name, type, help, default: def } : { name, type, help };
+}
+
+function parsePin(value: string, filePath: string): PinDirective {
+  const parts = value.split(/\s+/).filter(s => s.length > 0);
+  if (parts.length !== 2) {
+    throw parseError(filePath, 0, `@pins must be "name version", got "${value}"`);
+  }
+  const [name, version] = parts;
+  return { name, version };
 }
 
 function parseFetch(value: string, filePath: string): FetchDirective {
