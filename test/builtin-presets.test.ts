@@ -49,7 +49,7 @@ test('ships a litellm plugin preset that appends the runtime-discovery plugin', 
   assert.equal(meta.name, 'plugin-litellm-pricing');
   assert.equal(meta.path, 'plugin');
   assert.equal(meta.mode, 'append');
-  assert.deepEqual(body, ['opencode-litellm-pricing@0.2.0']);
+  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@0.3.0']);
 });
 
 test('ships a litellm provider preset that points at a proxy URL, no models', async () => {
@@ -141,7 +141,7 @@ test('records the pinned third-party version of every preset that installs one',
   const expected: Record<string, Array<{ name: string; version: string }>> = {
     'jdtls-lombok': [{ name: 'lombok', version: '1.18.46' }],
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.78' }],
-    'plugin-litellm-pricing': [{ name: 'opencode-litellm-pricing', version: '0.2.0' }],
+    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.3.0' }],
     'plugin-superpowers': [{ name: 'superpowers', version: '6.2.0' }],
   };
 
