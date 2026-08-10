@@ -10,7 +10,7 @@ name: pins
 
 on:
   schedule:
-    # Mondays, same day as the Dependabot run, an hour later.
+    # Mondays, same day as the Dependabot run.
     - cron: '0 8 * * 1'
   workflow_dispatch:
 

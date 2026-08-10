@@ -120,14 +120,23 @@ for (const name of orphans) {
   console.log(`\nnote: PIN_SOURCES has an entry for "${name}", which no preset pins any more`);
 }
 
+// process.exitCode rather than process.exit(): stdout is a pipe under CI, and
+// exiting outright can drop buffered writes — the table above is the whole
+// signal. Chained so nothing falls through to "all pins current".
 if (drifted) {
-  console.log('\nBump the @pins line, the version where it is used in the body or @fetch,');
-  console.log('and the README row together — a test enforces @pins and body agreeing.');
-  console.log('For an @fetch, re-verify sha256 against a second source before committing.');
-  process.exit(1);
-}
-if (failed) {
+  if (rows.some(r => r.state === 'NO SOURCE')) {
+    console.log('\nA "NO SOURCE" pin needs a lookup registered in src/pin-sources.ts,');
+    console.log('not a version bump.');
+  }
+  if (rows.some(r => r.state === 'BEHIND' || r.state === 'AHEAD?')) {
+    console.log('\nBump the @pins line, the version where it is used in the body or @fetch,');
+    console.log('and the README row together — a test enforces @pins and body agreeing.');
+    console.log('For an @fetch, re-verify sha256 against a second source before committing.');
+  }
+  process.exitCode = 1;
+} else if (failed) {
   console.log('\nOne or more lookups failed. That is not drift — re-run.');
-  process.exit(2);
+  process.exitCode = 2;
+} else {
+  console.log('\nall pins current');
 }
-console.log('\nall pins current');
