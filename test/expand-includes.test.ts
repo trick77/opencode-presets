@@ -90,6 +90,29 @@ describe('expandIncludes', () => {
     });
   });
 
+  // A bundle is expanded away before anything else sees it, so this callback is
+  // the only chance its @description — where it says what it is not — has to
+  // reach the user before they confirm.
+  test('reports each bundle it expands, so its description can be shown', async () => {
+    await withDir({
+      a: leaf('a'), b: leaf('b'),
+      inner: bundle('inner', ['a', 'b']),
+      outer: bundle('outer', ['inner']),
+    }, async (dir) => {
+      const seen: string[] = [];
+      await expandIncludes([resolve(dir, 'outer.conf')], resolver, m => seen.push(m.name));
+      assert.deepEqual(seen, ['outer', 'inner']);
+    });
+  });
+
+  test('reports nothing for a plain preset', async () => {
+    await withDir({ a: leaf('a') }, async (dir) => {
+      const seen: string[] = [];
+      await expandIncludes([resolve(dir, 'a.conf')], resolver, m => seen.push(m.name));
+      assert.deepEqual(seen, []);
+    });
+  });
+
   test('rejects a direct cycle', async () => {
     await withDir({ loop: bundle('loop', ['loop']) }, async (dir) => {
       await assert.rejects(

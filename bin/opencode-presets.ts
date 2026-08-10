@@ -7,11 +7,12 @@ import { fileURLToPath } from 'node:url';
 
 import { removeAtPath, getAtPath } from '../src/merge.js';
 import { backup } from '../src/backup.js';
-import { c, confirm, closeUi } from '../src/ui.js';
+import { c, confirm, closeUi, wrap } from '../src/ui.js';
 import { listConfs } from '../src/list.js';
 import { runBatch, runRemoveBatch } from '../src/batch.js';
 import { parseInstallArgs, validateInstallPolicy, CliArgsError } from '../src/cli-args.js';
 import { expandIncludes } from '../src/expand-includes.js';
+import type { ConfMeta } from '../src/parse-conf.js';
 import { validateAgainstSchema } from '../src/validate.js';
 import { printValidationIssue } from '../src/validation-output.js';
 
@@ -173,12 +174,26 @@ async function resolveConfArg(arg: string): Promise<string> {
 // reach runBatch/runRemoveBatch — only their expansion does.
 async function expandConfArgs(args: string[]): Promise<string[]> {
   const resolved = await Promise.all(args.map(resolveConfArg));
+  const bundles: ConfMeta[] = [];
+  let expanded: string[];
   try {
-    return await expandIncludes(resolved, resolveIncludeRef);
+    expanded = await expandIncludes(resolved, resolveIncludeRef, m => bundles.push(m));
   } catch (e) {
     console.error(c.err('error: ') + (e instanceof Error ? e.message : String(e)));
     process.exit(1);
   }
+
+  // A bundle is expanded away before the summary renders, so its own
+  // description — where it says what it is and what it is not — would never be
+  // seen. Print it here, ahead of the list of presets it turned into.
+  for (const m of bundles) {
+    console.log('');
+    console.log(c.bold(m.name) + c.meta(` v${m.version}`) + c.dim(' — bundle of ') +
+      c.bold(String(m.includes.length)) + c.dim(' presets'));
+    console.log(wrap(m.description, 72, '    '));
+  }
+
+  return expanded;
 }
 
 // An @include value is either a path relative to the including file, or a bare
