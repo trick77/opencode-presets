@@ -1,0 +1,34 @@
+name: pins
+
+# Dependabot watches package.json and the workflows. Nothing watches the @pins
+# in presets/*.conf — they are header comments in a custom format, invisible to
+# every ecosystem parser. This job is what notices when one falls behind.
+#
+# Scheduled rather than per-PR on purpose: it makes live network calls, and a
+# new upstream release is not a reason to fail an unrelated pull request.
+# A failing run here is the signal; nothing is opened or committed automatically.
+
+on:
+  schedule:
+    # Mondays, same day as the Dependabot run, an hour later.
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: node scripts/check-pins.mjs
+        env:
+          # Raises the anonymous GitHub API rate limit. Read-only, public data.
+          GITHUB_TOKEN: ${{ github.token }}

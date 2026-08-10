@@ -152,6 +152,13 @@ in `@description`. opencode caches by full spec string and never re-checks, so
 an unpinned ref freezes at first resolve; changing the string triggers the
 re-fetch.
 
+New `@pins` → also add a lookup to `PIN_SOURCES` (`src/pin-sources.ts`). A test
+fails without one, because Dependabot cannot see preset headers and
+`.github/workflows/pins.yaml` is the only thing that would catch drift.
+`npm run check-pins` runs it locally. Pin *ahead* of upstream = that source is
+wrong, not good news — lombok is on git tags because Maven Central's index and
+projectlombok.org's download page each reported a stale "latest".
+
 `@fetch` → always `sha256=`, and version the dest filename; `fetchAsset` skips
 an existing dest, so reusing the filename makes a bump a no-op. Verify the hash
 against a second source before committing.
