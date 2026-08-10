@@ -229,6 +229,15 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
   if (isNoOp) {
     console.log('');
     console.log('  ' + c.dim('· no change — target file untouched, no backup written'));
+    // "no change" is exactly the case a shadowed deny hides behind: every key the
+    // deny module wanted is already present under a weaker action, so nothing is
+    // written and the guardrail is missing. Say it here too, not only in the footer.
+    for (const m of modules) {
+      if (!m.shadowedDenies?.length) continue;
+      console.log('  • ' + c.bold(m.meta.name));
+      for (const line of shadowedDenyWarnings(m)) console.log(line);
+    }
+    for (const line of shadowedDenyRemedy(modules, target)) console.log(line);
     return;
   }
 
@@ -301,6 +310,36 @@ export function agentOverrideWarnings(
       c.dim(' to fall back to these rules,'),
     '    ' + c.dim('        or repeat the same rules inside each agent block'),
   ];
+}
+
+// A preserved allow is noise; a preserved deny means a guardrail is missing from
+// the config the user believes they just hardened.
+export function shadowedDenyWarnings(m: BatchModule): string[] {
+  return (m.shadowedDenies ?? []).map(s =>
+    '    ' + c.warn('⚠ ') +
+    `${JSON.stringify(s.key)} is already "${s.current}" in your config — the deny was NOT applied`);
+}
+
+// Printed after both a real write and a no-op run: "no change" is precisely the
+// shape a fully shadowed deny module takes, so the remedy has to show up there too.
+export function shadowedDenyRemedy(modules: BatchModule[], target: string): string[] {
+  const affected = modules.filter(m => m.shadowedDenies?.length);
+  if (affected.length === 0) return [];
+
+  const shadowedPaths = [...new Set(affected.map(m => m.resolvedPath ?? m.meta.path))];
+  const names = affected.map(m => m.meta.name).join(' ');
+  const lines: string[] = [];
+  lines.push('');
+  lines.push('  ' + c.warn('To apply those denies, pick one:'));
+  lines.push('    ' + c.dim('1.') + ` delete the listed keys from ${shadowedPaths.join(', ')} in ${target},`);
+  lines.push('       ' + c.dim(`then re-run: opencode-presets install ${names}`));
+  lines.push('    ' + c.dim('2.') + ' wipe the whole path and reinstall from scratch:');
+  for (const p of shadowedPaths) {
+    lines.push('       ' + c.bold(`opencode-presets install --reset ${p} ${names}`));
+  }
+  lines.push('       ' + c.dim('this also deletes any other hand-written rules at that path'));
+  lines.push('    ' + c.dim('3.') + ' keep your rule deliberately — nothing to do, but the guardrail is off');
+  return lines;
 }
 
 function renderSummary(
@@ -379,30 +418,9 @@ function renderFooter(
       if (m.stats.overwritten) summary += `, overwritten ${m.stats.overwritten}`;
     }
     lines.push('  • ' + c.bold(m.meta.name) + c.meta(' — ') + summary);
-
-    // A preserved allow is noise; a preserved deny means a guardrail is missing
-    // from the config the user believes they just hardened.
-    for (const s of m.shadowedDenies ?? []) {
-      lines.push('    ' + c.warn('⚠ ') +
-        `${JSON.stringify(s.key)} is already "${s.current}" in your config — the deny was NOT applied`);
-    }
+    for (const line of shadowedDenyWarnings(m)) lines.push(line);
   }
-  const shadowedPaths = [...new Set(
-    modules.filter(m => m.shadowedDenies?.length).map(m => m.resolvedPath ?? m.meta.path),
-  )];
-  if (shadowedPaths.length > 0) {
-    const names = modules.filter(m => m.shadowedDenies?.length).map(m => m.meta.name).join(' ');
-    lines.push('');
-    lines.push('  ' + c.warn('To apply those denies, pick one:'));
-    lines.push('    ' + c.dim('1.') + ` delete the listed keys from ${shadowedPaths.join(', ')} in ${target},`);
-    lines.push('       ' + c.dim(`then re-run: opencode-presets install ${names}`));
-    lines.push('    ' + c.dim('2.') + ' wipe the whole path and reinstall from scratch:');
-    for (const p of shadowedPaths) {
-      lines.push('       ' + c.bold(`opencode-presets install --reset ${p} ${names}`));
-    }
-    lines.push('       ' + c.dim('this also deletes any other hand-written rules at that path'));
-    lines.push('    ' + c.dim('3.') + ' keep your rule deliberately — nothing to do, but the guardrail is off');
-  }
+  for (const line of shadowedDenyRemedy(modules, target)) lines.push(line);
 
   const resetsApplied = resetStats.filter(r => !r.missing).length;
   const leavesReplaced = modules.filter(m => m.stats && m.stats.mode === 'replace' && m.stats.replaced).length;

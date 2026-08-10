@@ -266,13 +266,19 @@ test('keeps shipped deny rules disjoint from shipped allow rules', async () => {
   }
 
   // Precondition for the key-vs-key check below: it is only a valid proxy for
-  // "no command string matches both" when patterns are prefix-anchored. A deny
-  // like `* --force` matches no allow key and is matched by none, yet
-  // `oc get pods --force` would match it and `oc get *` alike.
+  // "no command string matches both" when every deny is a literal prefix with
+  // at most a trailing wildcard. Any interior `*` breaks it — `oc * --force`
+  // neither matches nor is matched by `oc get *`, yet `oc get pods --force`
+  // matches both — and so does a leading one.
   for (const rule of deny) {
+    const star = rule.pattern.indexOf('*');
     assert.ok(
-      !rule.pattern.startsWith('*'),
-      `${rule.name}: deny pattern ${JSON.stringify(rule.pattern)} starts with a wildcard`,
+      star === -1 || star === rule.pattern.length - 1,
+      `${rule.name}: deny pattern ${JSON.stringify(rule.pattern)} must have a wildcard only at the end`,
+    );
+    assert.ok(
+      !rule.pattern.includes('?'),
+      `${rule.name}: deny pattern ${JSON.stringify(rule.pattern)} must not use "?"`,
     );
   }
 

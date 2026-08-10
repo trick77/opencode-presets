@@ -1,6 +1,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { findShadowedDenies, agentOverrideWarnings } from '../src/batch.js';
+import {
+  findShadowedDenies, agentOverrideWarnings, shadowedDenyWarnings, shadowedDenyRemedy,
+} from '../src/batch.js';
 import type { ConfMeta } from '../src/parse-conf.js';
 
 function meta(path: string): ConfMeta {
@@ -97,5 +99,35 @@ describe('agentOverrideWarnings', () => {
   test('stays quiet with no config, or no agent block', () => {
     assert.deepEqual(agentOverrideWarnings(permModule, null), []);
     assert.deepEqual(agentOverrideWarnings(permModule, { theme: 'x' }), []);
+  });
+});
+
+describe('shadowed deny rendering', () => {
+  const mod = {
+    confPath: '/x/permissions-deny-destructive.conf',
+    meta: { ...meta('permission.bash'), name: 'permissions-deny-destructive' },
+    body: {},
+    resolvedPath: 'permission.bash',
+    shadowedDenies: [{ key: 'sudo *', current: 'ask' }],
+  };
+
+  test('names the key and says the deny did not apply', () => {
+    const out = shadowedDenyWarnings(mod).join('\n');
+    assert.match(out, /"sudo \*"/);
+    assert.match(out, /NOT applied/);
+  });
+
+  // The remedy has to render off the module list alone, because runBatch also
+  // prints it on the "no change" path, where no footer is built.
+  test('offers a remedy naming the path, the target and the module', () => {
+    const out = shadowedDenyRemedy([mod], '/home/u/.config/opencode/opencode.json').join('\n');
+    assert.match(out, /permission\.bash/);
+    assert.match(out, /opencode\.json/);
+    assert.match(out, /install --reset permission\.bash permissions-deny-destructive/);
+  });
+
+  test('says nothing when no deny was shadowed', () => {
+    assert.deepEqual(shadowedDenyWarnings({ ...mod, shadowedDenies: undefined }), []);
+    assert.deepEqual(shadowedDenyRemedy([{ ...mod, shadowedDenies: [] }], '/t'), []);
   });
 });

@@ -99,6 +99,18 @@ describe('parseConfString — @include', () => {
     assert.throws(() => parseConfString(src), /must not have a body/);
   });
 
+  // These would be dropped on the floor: a bundle never reaches an applier.
+  test('rejects a bundle that sets @fetch, @prompt or @pins', () => {
+    const cases: [string, RegExp][] = [
+      ['// @fetch: https://x/y.jar -> {{cache}}/y.jar\n', /must not set @fetch/],
+      ['// @prompt: url | text | where\n', /must not set @prompt/],
+      ['// @pins: lombok 1.18.46\n', /must not set @pins/],
+    ];
+    for (const [directive, re] of cases) {
+      assert.throws(() => parseConfString(bundleHeader + directive + '// @include: a\n'), re);
+    }
+  });
+
   test('rejects an empty @include', () => {
     assert.throws(() => parseConfString(bundleHeader + '// @include:\n'), /needs a module name or path/);
   });

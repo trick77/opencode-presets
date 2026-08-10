@@ -139,6 +139,15 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
     if (bodyText) {
       throw parseError(filePath, i + 1, '@include modules must not have a body — they only list other modules');
     }
+    // A bundle never reaches an applier, so these would be silently dropped.
+    // Rejecting them beats letting an author think they took effect.
+    for (const [key, present] of [
+      ['fetch', meta.fetch.length], ['prompt', meta.prompts.length], ['pins', meta.pins.length],
+    ] as const) {
+      if (present) {
+        throw parseError(filePath, 1, `@include modules must not set @${key} — put it on the module that uses it`);
+      }
+    }
     for (const k of REQUIRED) {
       if (k === 'path') continue;
       if (!meta[k]) throw parseError(filePath, 1, `missing required header @${k}`);
