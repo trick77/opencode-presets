@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { readdir } from 'node:fs/promises';
 import { parseConf } from '../src/parse-conf.js';
+import { expandIncludes } from '../src/expand-includes.js';
 
 test('ships a preset that makes webfetch ask before use', async () => {
   const preset = resolve(process.cwd(), 'presets/permissions-webfetch-ask.conf');
@@ -193,6 +194,117 @@ test('keeps shipped descriptions short enough to read at the install prompt', as
     );
   }
 });
+
+test('ships a recommended bundle that expands to the read-only modules, then the denies', async () => {
+  const dir = resolve(process.cwd(), 'presets');
+  const { meta, body } = await parseConf(resolve(dir, 'permissions-recommended.conf'));
+
+  assert.equal(body, null, 'a bundle must have no body of its own');
+  assert.equal(meta.path, '', 'a bundle must have no @path of its own');
+  assert.deepEqual(meta.includes, [
+    'permissions-shell-safe',
+    'permissions-git-safe',
+    'permissions-toolchain-info',
+    'permissions-container-info',
+    'permissions-deny-destructive',
+    'permissions-deny-cluster-write',
+  ]);
+
+  const resolveRef = async (ref: string) => resolve(dir, ref + '.conf');
+  const expanded = await expandIncludes([resolve(dir, 'permissions-recommended.conf')], resolveRef);
+
+  // Order is load-bearing: last-match-wins plus an appending `merge` means the
+  // deny modules have to land after everything they might otherwise be
+  // shadowed by.
+  const actions = await Promise.all(expanded.map(async (p) => {
+    const { body } = await parseConf(p);
+    return new Set(Object.values(body as Record<string, string>));
+  }));
+  const lastAllow = actions.reduce((last, a, i) => (a.has('allow') ? i : last), -1);
+  const firstDeny = actions.findIndex((a) => a.has('deny'));
+  assert.ok(firstDeny > lastAllow, 'deny modules must expand after every allow module');
+
+  // Nothing the bundle pulls in may execute project code — that would let
+  // `python -c` route around the very deny rules the bundle installs.
+  assert.ok(
+    !expanded.some((p) => p.endsWith('permissions-build-tools.conf')),
+    'the recommended bundle must not include permissions-build-tools',
+  );
+});
+
+test('every @include in a shipped preset points at another shipped preset', async () => {
+  const files = await shippedPresets();
+  const stems = new Set(files.map((f) => f.replace(/^.*\//, '').replace(/\.conf$/, '')));
+
+  for (const file of files) {
+    const { meta } = await parseConf(file);
+    for (const ref of meta.includes) {
+      assert.ok(
+        stems.has(ref),
+        `${meta.name}: @include ${JSON.stringify(ref)} does not name a shipped preset`,
+      );
+    }
+  }
+});
+
+// opencode evaluates permission rules with last-match-wins, and `merge` appends
+// new keys at the end — so install order would silently decide the outcome of any
+// deny/allow pair that can match the same command string. Keeping every shipped
+// deny disjoint from every shipped allow makes order irrelevant.
+test('keeps shipped deny rules disjoint from shipped allow rules', async () => {
+  const deny: { name: string; pattern: string }[] = [];
+  const allow: { name: string; pattern: string }[] = [];
+
+  for (const file of await shippedPresets()) {
+    const { meta, body } = await parseConf(file);
+    if (!meta.path.startsWith('permission.')) continue;
+    if (body === null || typeof body !== 'object' || Array.isArray(body)) continue;
+    for (const [pattern, action] of Object.entries(body as Record<string, unknown>)) {
+      if (action === 'deny') deny.push({ name: meta.name, pattern });
+      if (action === 'allow') allow.push({ name: meta.name, pattern });
+    }
+  }
+
+  // Precondition for the key-vs-key check below: it is only a valid proxy for
+  // "no command string matches both" when every deny is a literal prefix with
+  // at most a trailing wildcard. Any interior `*` breaks it — `oc * --force`
+  // neither matches nor is matched by `oc get *`, yet `oc get pods --force`
+  // matches both — and so does a leading one.
+  for (const rule of deny) {
+    const star = rule.pattern.indexOf('*');
+    assert.ok(
+      star === -1 || star === rule.pattern.length - 1,
+      `${rule.name}: deny pattern ${JSON.stringify(rule.pattern)} must have a wildcard only at the end`,
+    );
+    assert.ok(
+      !rule.pattern.includes('?'),
+      `${rule.name}: deny pattern ${JSON.stringify(rule.pattern)} must not use "?"`,
+    );
+  }
+
+  for (const d of deny) {
+    for (const a of allow) {
+      assert.ok(
+        !globMatch(a.pattern, d.pattern),
+        `${a.name}'s allow ${JSON.stringify(a.pattern)} shadows ${d.name}'s deny ${JSON.stringify(d.pattern)}`,
+      );
+      assert.ok(
+        !globMatch(d.pattern, a.pattern),
+        `${d.name}'s deny ${JSON.stringify(d.pattern)} shadows ${a.name}'s allow ${JSON.stringify(a.pattern)}`,
+      );
+    }
+  }
+});
+
+// Whole-line glob, matching opencode's Wildcard.match: `*` is any run of
+// characters, `?` is exactly one, everything else is literal.
+function globMatch(pattern: string, subject: string): boolean {
+  const source = pattern
+    .split('')
+    .map((ch) => (ch === '*' ? '.*' : ch === '?' ? '.' : ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+    .join('');
+  return new RegExp(`^${source}$`).test(subject);
+}
 
 async function shippedPresets(): Promise<string[]> {
   const dir = resolve(process.cwd(), 'presets');

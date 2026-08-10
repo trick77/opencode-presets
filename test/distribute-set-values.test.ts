@@ -17,6 +17,7 @@ function mod(name: string, prompts: string[]): BatchModule {
     fetch: [],
     prompts: prompts.map(p => ({ name: p, type: 'text' as const, help: '' })),
     pins: [],
+    includes: [],
   };
   return { confPath: `${name}.conf`, meta, body: {} };
 }

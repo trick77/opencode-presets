@@ -41,12 +41,15 @@ export async function listConfs(dirs: string[], { long = false, repoRoot }: { lo
     for (const f of files) {
       try {
         const { meta } = await parseConf(f);
+        // A bundle has no @path and no @mode of its own — showing the parser's
+        // `replace` default against an empty path would be actively misleading.
+        const isBundle = meta.includes.length > 0;
         allRows.push({
           ok: true,
           name: meta.name,
           ver: meta.version,
-          mode: meta.mode,
-          path: meta.path,
+          mode: isBundle ? 'bundle' : meta.mode,
+          path: isBundle ? meta.includes.join(', ') : meta.path,
           description: meta.description,
           pins: meta.pins,
           file: f,

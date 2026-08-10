@@ -64,6 +64,63 @@ describe('parseConfString — multi-line description', () => {
   });
 });
 
+describe('parseConfString — @include', () => {
+  const bundleHeader = `// @name: pack
+// @description: a bundle
+// @author: someone
+// @version: 0.1.0
+`;
+
+  test('accumulates repeated @include lines', () => {
+    const src = bundleHeader + '// @include: a\n// @include: b\n';
+    const { meta, body } = parseConfString(src);
+    assert.deepEqual(meta.includes, ['a', 'b']);
+    assert.equal(body, null);
+  });
+
+  test('a bundle needs no @path', () => {
+    const src = bundleHeader + '// @include: a\n';
+    assert.equal(parseConfString(src).meta.path, '');
+  });
+
+  test('a plain module has no includes', () => {
+    assert.deepEqual(parseConfString(minimalHeader + '\n{}').meta.includes, []);
+  });
+
+  // Both guards keep a bundle from ever carrying an appliable payload: with an
+  // empty @path, applyAtPath would treat the whole config as the leaf.
+  test('rejects a bundle that also sets @path', () => {
+    const src = bundleHeader + '// @path: a.b.c\n// @include: a\n';
+    assert.throws(() => parseConfString(src), /must not set @path/);
+  });
+
+  test('rejects a bundle that also has a body', () => {
+    const src = bundleHeader + '// @include: a\n\n{ "x": "allow" }';
+    assert.throws(() => parseConfString(src), /must not have a body/);
+  });
+
+  // These would be dropped on the floor: a bundle never reaches an applier.
+  test('rejects a bundle that sets @fetch, @prompt or @pins', () => {
+    const cases: [string, RegExp][] = [
+      ['// @fetch: https://x/y.jar -> {{cache}}/y.jar\n', /must not set @fetch/],
+      ['// @prompt: url | text | where\n', /must not set @prompt/],
+      ['// @pins: lombok 1.18.46\n', /must not set @pins/],
+    ];
+    for (const [directive, re] of cases) {
+      assert.throws(() => parseConfString(bundleHeader + directive + '// @include: a\n'), re);
+    }
+  });
+
+  test('rejects an empty @include', () => {
+    assert.throws(() => parseConfString(bundleHeader + '// @include:\n'), /needs a module name or path/);
+  });
+
+  test('still requires the other headers', () => {
+    const src = '// @name: pack\n// @author: someone\n// @version: 0.1.0\n// @include: a\n';
+    assert.throws(() => parseConfString(src), /missing required header @description/);
+  });
+});
+
 describe('parseConfString — @pins', () => {
   test('parses a scoped package name and version', () => {
     const src = minimalHeader + '// @pins: @playwright/mcp 0.0.78\n\n{}';

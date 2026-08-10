@@ -30,6 +30,28 @@ Order irrelevant.
   Version must also appear in body or `@fetch` (tested).
 - `@prompt: name | type | help | default` — repeatable; type `text`/`secret`.
   Help/default optional. Default forbidden for `secret`. Empty input → default.
+- `@include: <name|path>` — repeatable. Makes the module a **bundle**.
+
+## Bundles (`@include`)
+
+- Bundle = pure list. No `@path`, no body — parser rejects both. That's what
+  stops one reaching an applier: empty `@path` → `applyAtPath` treats the whole
+  config as the leaf and replaces it.
+- `expandIncludes` (`src/expand-includes.ts`) flattens to leaves only, keeps
+  declaration order, dedupes a leaf to its first position, throws on cycles.
+- Order is load-bearing for permissions — list deny modules last.
+- Never `@include` a module that runs project code (`permissions-build-tools`)
+  in a defaults bundle: `python -c` routes around every deny rule.
+- `remove <bundle>` strips all members. No ownership tracking — say so.
+
+## Warn, don't silently no-op
+
+`merge` preserving an existing key is normal. Preserving one whose incoming
+value is `deny` means a guardrail did not install — name the key and say how to
+fix it (`findShadowedDenies` in `src/batch.ts`). Same for
+`agent.<name>.permission`: it beats global rules, so warn before the confirm
+(`agentOverrideWarnings`). Every such warning states the concrete command or
+key to change — never just that something happened.
 
 Body is JSONC, must parse to JSON matching the `@path` leaf: any shape for
 `replace`, object for `merge`/`merge-overwrite`, array for `append`.
@@ -66,6 +88,20 @@ Matcher is whole-line glob; `*` matches any chars.
   streamers (`docker stats` without `--no-stream`) — they hang the agent.
 - Harmless isn't enough; the agent must *also* invoke it often. No `whoami`,
   `uptime`, `hostname`, `uname` filler.
+
+### Deny rules
+
+- Hard block. No prompt, survives `--auto`. User can't approve past it →
+  over-matching is unfixable by them. Precise patterns only, never leading `*`.
+- `*` spans `/`. `rm -rf /*` also matches `rm -rf /tmp/x` → anchor exactly.
+- Disjoint from every shipped allow pattern (tested in
+  `test/builtin-presets.test.ts`). Last-match-wins + `merge` appends → otherwise
+  install order silently decides.
+- Broad hand-written allows → tell the user to install the deny preset last.
+- No `|` in a pattern. opencode tree-sitter-splits `&&`/`|`/`;` before matching,
+  so `curl * | sh` can never match.
+- Not compound-proof: env-var prefixes, `sh -c`, aliases slip through. Never call
+  a deny preset a security boundary — guardrail only.
 
 ## Naming and placement
 

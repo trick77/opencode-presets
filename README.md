@@ -96,15 +96,93 @@ on a readline for the next.
 | `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing instead of `$0` (pair with `provider-litellm` to set the proxy URL and key; pins `opencode-plugin-litellm-pricing` 0.3.0) |
 | `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing` (prompts for base URL and API key; no models list) |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.2.0`) |
+| `permissions-recommended` | Permissions | bundle | **Start here.** Pulls in the six modules below — the read-only ones first, then the two deny modules |
 | `permissions-git-safe` | Permissions | merge | Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
 | `permissions-webfetch-ask` | Permissions | merge | Requires approval before opencode uses the webfetch tool |
 | `permissions-shell-safe` | Permissions | merge | Low-risk shell commands (ls, cat, grep, rg, jq, yq, etc.) |
 | `permissions-build-tools` | Permissions | merge | Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |
-| `permissions-container-info` | Permissions | merge | Read-only docker, podman, oc inspection commands |
+| `permissions-container-info` | Permissions | merge | Read-only docker and podman inspection commands (the `oc` rules moved to `permissions-cluster-info` in 0.2.0) |
+| `permissions-cluster-info` | Permissions | merge | Read-only `oc` (OpenShift) inspection — grants read access to whichever cluster you are logged into |
 | `permissions-toolchain-info` | Permissions | merge | Version probes for common dev toolchains |
+| `permissions-deny-cluster-write` | Permissions | merge | Hard-denies mutating and exec `oc`, `kubectl`, `helm` verbs — no prompt, not bypassable by `--auto` |
+| `permissions-deny-destructive` | Permissions | merge | Hard-denies `sudo`, root/home-anchored `rm -rf`, `dd`, `mkfs`, force-push, `reset --hard` |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
 | `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
+
+### Bundles
+
+A preset whose header carries `@include` lines is a **bundle**: a pure list of
+other presets, with no `@path` and no rules of its own. Installing it installs
+what it lists, in the order listed — which matters for permissions, since
+opencode is last-match-wins and `merge` appends new keys at the end.
+
+```sh
+opencode-presets install permissions-recommended
+opencode-presets install permissions-recommended permissions-build-tools
+opencode-presets install permissions-recommended permissions-cluster-info
+```
+
+`remove` expands a bundle the same way and tells you how many presets it is
+about to strip before asking. There is no per-preset ownership tracking, so
+removing a bundle also clears keys an earlier standalone install of one of its
+members had written — the confirmation lists every module so you can see it.
+
+Three permission presets are deliberately **not** in the bundle:
+
+- `permissions-build-tools` — runs project-defined code (`npm test` executes
+  whatever `package.json` says). It also re-opens what the deny rules close:
+  `python -c "…"` and `node -e "…"` execute commands opencode never sees as
+  shell commands, so no deny rule can match them.
+- `permissions-cluster-info` — grants read on whichever cluster you are logged
+  into, production included. Worth an explicit decision.
+- `permissions-webfetch-ask` — *adds* friction, so it has no place in a
+  defaults bundle.
+
+### About the `deny` presets
+
+opencode rejects a denied command outright — no approval prompt is shown, and
+`--auto` only auto-approves requests that are *not* explicitly denied. So a deny
+rule is the one tier that survives a habit of clicking "allow". Compound commands
+are split by opencode before matching, so `cd /x && oc delete pod y` is caught too.
+
+Two things to know:
+
+- **Install deny presets last.** Rules are last-match-wins and `merge` appends new
+  keys at the end. The shipped deny patterns are disjoint from every shipped allow
+  pattern (enforced by a test), so order does not matter among these presets — but a
+  broad hand-written rule of your own, like `"oc *": "allow"`, will win if it was
+  written after the deny.
+- **They are a guardrail, not a security boundary.** Env-var-prefixed
+  (`KUBECONFIG=x oc delete …`), `sh -c "…"`-wrapped and aliased invocations are not
+  matched.
+
+Because `merge` never overwrites, a rule you already have with the *same pattern
+string* keeps a preset's deny out. The installer names each one and tells you how
+to fix it rather than letting the guardrail go missing quietly:
+
+```
+• permissions-deny-destructive — added 27, preserved 3
+  ⚠ "sudo *" is already "ask" in your config — the deny was NOT applied
+  ⚠ "rm -rf /" is already "allow" in your config — the deny was NOT applied
+
+To apply those denies, pick one:
+  1. delete the listed keys from permission.bash in ~/.config/opencode/opencode.json,
+     then re-run: opencode-presets install permissions-deny-destructive
+  2. wipe the whole path and reinstall from scratch:
+     opencode-presets install --reset permission.bash permissions-deny-destructive
+     this also deletes any other hand-written rules at that path
+  3. keep your rule deliberately — nothing to do, but the guardrail is off
+```
+
+It also warns *before* you confirm if any agent sets its own permission rules —
+`agent.<name>.permission` is evaluated after the global rules and wins, so global
+denies do nothing for that agent.
+
+Upgrading `permissions-container-info` to 0.2.0 **does not revoke `oc` access an
+earlier install already granted**: `merge` never removes keys, and 0.2.0 no longer
+lists the `oc` rules. To clear them, run
+`opencode-presets remove permissions-cluster-info`.
 
 Install multiple at once:
 
