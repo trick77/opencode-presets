@@ -84,16 +84,16 @@ on a readline for the next.
 
 | Preset | Category | Mode | Description |
 | --- | --- | --- | --- |
-| `permissions-recommended` | Permissions | bundle | **Start here.** Installs exactly the six `↳` modules, in that order |
-| ↳ `permissions-shell-safe` | Permissions | merge | Low-risk shell commands (ls, cat, grep, rg, jq, yq, etc.) |
-| ↳ `permissions-git-safe` | Permissions | merge | Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
-| ↳ `permissions-toolchain-info` | Permissions | merge | Version probes for common dev toolchains |
-| ↳ `permissions-container-info` | Permissions | merge | Read-only docker and podman inspection commands (the `oc` rules moved to `permissions-cluster-info` in 0.2.0) |
-| ↳ `permissions-deny-destructive` | Permissions | merge | Hard-denies `sudo`, root/home-anchored `rm -rf`, `dd`, `mkfs`, force-push, `reset --hard` |
-| ↳ `permissions-deny-cluster-write` | Permissions | merge | Hard-denies mutating and exec `oc`, `kubectl`, `helm` verbs — no prompt, not bypassable by `--auto` |
-| `permissions-build-tools` | Permissions | merge | Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go). Not in the bundle |
-| `permissions-cluster-info` | Permissions | merge | Read-only `oc` (OpenShift) inspection — grants read access to whichever cluster you are logged into. Not in the bundle |
-| `permissions-webfetch-ask` | Permissions | merge | Requires approval before opencode uses the webfetch tool. Not in the bundle |
+| `permissions-recommended` | Permissions | bundle | **Start here.** Installs `permissions-shell-safe`, `permissions-git-safe`, `permissions-toolchain-info`, `permissions-container-info`, `permissions-deny-destructive` and `permissions-deny-cluster-write`, in that order |
+| `permissions-shell-safe` | Permissions | merge | In the bundle. Low-risk shell commands (ls, cat, grep, rg, jq, yq, etc.) |
+| `permissions-git-safe` | Permissions | merge | In the bundle. Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
+| `permissions-toolchain-info` | Permissions | merge | In the bundle. Version probes for common dev toolchains |
+| `permissions-container-info` | Permissions | merge | In the bundle. Read-only docker and podman inspection commands (the `oc` rules moved to `permissions-cluster-info` in 0.2.0) |
+| `permissions-deny-destructive` | Permissions | merge | In the bundle. Hard-denies `sudo`, root/home-anchored `rm -rf`, `dd`, `mkfs`, force-push, `reset --hard` |
+| `permissions-deny-cluster-write` | Permissions | merge | In the bundle. Hard-denies mutating and exec `oc`, `kubectl`, `helm` verbs — no prompt, not bypassable by `--auto` |
+| `permissions-build-tools` | Permissions | merge | Not in the bundle. Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |
+| `permissions-cluster-info` | Permissions | merge | Not in the bundle. Read-only `oc` (OpenShift) inspection — grants read access to whichever cluster you are logged into |
+| `permissions-webfetch-ask` | Permissions | merge | Not in the bundle. Requires approval before opencode uses the webfetch tool |
 | `jdtls-lombok` | LSP | replace | Makes jdtls lombok-aware via `-javaagent` flag (pins lombok 1.18.46, sha256-verified) |
 | `jdtls-clean-workspace` | LSP | replace | Stops jdtls from writing `.project`/`.classpath`/etc. into your project root |
 | `mcp-http` | MCP | replace | Add an HTTP MCP server (localhost or remote) with one custom header (prompts for id, URL, header name, header value) |
