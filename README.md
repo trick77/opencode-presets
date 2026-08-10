@@ -84,7 +84,7 @@ on a readline for the next.
 
 | Preset | Category | Mode | Description |
 | --- | --- | --- | --- |
-| `permissions-recommended` | Permissions | bundle | **Start here.** Installs `permissions-shell-safe`, `permissions-git-safe`, `permissions-toolchain-info`, `permissions-container-info`, `permissions-deny-destructive` and `permissions-deny-cluster-write`, in that order |
+| `permissions-recommended` | Permissions | bundle | **Start here.** Installs the six presets marked *In the bundle* |
 | `permissions-shell-safe` | Permissions | merge | In the bundle. Low-risk shell commands (ls, cat, grep, rg, jq, yq, etc.) |
 | `permissions-git-safe` | Permissions | merge | In the bundle. Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
 | `permissions-toolchain-info` | Permissions | merge | In the bundle. Version probes for common dev toolchains |
