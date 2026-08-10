@@ -194,6 +194,59 @@ test('keeps shipped descriptions short enough to read at the install prompt', as
   }
 });
 
+// opencode evaluates permission rules with last-match-wins, and `merge` appends
+// new keys at the end — so install order would silently decide the outcome of any
+// deny/allow pair that can match the same command string. Keeping every shipped
+// deny disjoint from every shipped allow makes order irrelevant.
+test('keeps shipped deny rules disjoint from shipped allow rules', async () => {
+  const deny: { name: string; pattern: string }[] = [];
+  const allow: { name: string; pattern: string }[] = [];
+
+  for (const file of await shippedPresets()) {
+    const { meta, body } = await parseConf(file);
+    if (!meta.path.startsWith('permission.')) continue;
+    if (body === null || typeof body !== 'object' || Array.isArray(body)) continue;
+    for (const [pattern, action] of Object.entries(body as Record<string, unknown>)) {
+      if (action === 'deny') deny.push({ name: meta.name, pattern });
+      if (action === 'allow') allow.push({ name: meta.name, pattern });
+    }
+  }
+
+  // Precondition for the key-vs-key check below: it is only a valid proxy for
+  // "no command string matches both" when patterns are prefix-anchored. A deny
+  // like `* --force` matches no allow key and is matched by none, yet
+  // `oc get pods --force` would match it and `oc get *` alike.
+  for (const rule of deny) {
+    assert.ok(
+      !rule.pattern.startsWith('*'),
+      `${rule.name}: deny pattern ${JSON.stringify(rule.pattern)} starts with a wildcard`,
+    );
+  }
+
+  for (const d of deny) {
+    for (const a of allow) {
+      assert.ok(
+        !globMatch(a.pattern, d.pattern),
+        `${a.name}'s allow ${JSON.stringify(a.pattern)} shadows ${d.name}'s deny ${JSON.stringify(d.pattern)}`,
+      );
+      assert.ok(
+        !globMatch(d.pattern, a.pattern),
+        `${d.name}'s deny ${JSON.stringify(d.pattern)} shadows ${a.name}'s allow ${JSON.stringify(a.pattern)}`,
+      );
+    }
+  }
+});
+
+// Whole-line glob, matching opencode's Wildcard.match: `*` is any run of
+// characters, `?` is exactly one, everything else is literal.
+function globMatch(pattern: string, subject: string): boolean {
+  const source = pattern
+    .split('')
+    .map((ch) => (ch === '*' ? '.*' : ch === '?' ? '.' : ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+    .join('');
+  return new RegExp(`^${source}$`).test(subject);
+}
+
 async function shippedPresets(): Promise<string[]> {
   const dir = resolve(process.cwd(), 'presets');
   const entries = await readdir(dir);

@@ -67,6 +67,20 @@ Matcher is whole-line glob; `*` matches any chars.
 - Harmless isn't enough; the agent must *also* invoke it often. No `whoami`,
   `uptime`, `hostname`, `uname` filler.
 
+### Deny rules
+
+- Hard block. No prompt, survives `--auto`. User can't approve past it →
+  over-matching is unfixable by them. Precise patterns only, never leading `*`.
+- `*` spans `/`. `rm -rf /*` also matches `rm -rf /tmp/x` → anchor exactly.
+- Disjoint from every shipped allow pattern (tested in
+  `test/builtin-presets.test.ts`). Last-match-wins + `merge` appends → otherwise
+  install order silently decides.
+- Broad hand-written allows → tell the user to install the deny preset last.
+- No `|` in a pattern. opencode tree-sitter-splits `&&`/`|`/`;` before matching,
+  so `curl * | sh` can never match.
+- Not compound-proof: env-var prefixes, `sh -c`, aliases slip through. Never call
+  a deny preset a security boundary — guardrail only.
+
 ## Naming and placement
 
 - `presets/<category>-*.conf`: `permissions-`, `mcp-`, `lsp-`, `tui-`.

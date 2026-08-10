@@ -100,17 +100,44 @@ on a readline for the next.
 | `permissions-webfetch-ask` | Permissions | merge | Requires approval before opencode uses the webfetch tool |
 | `permissions-shell-safe` | Permissions | merge | Low-risk shell commands (ls, cat, grep, rg, jq, yq, etc.) |
 | `permissions-build-tools` | Permissions | merge | Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |
-| `permissions-container-info` | Permissions | merge | Read-only docker, podman, oc inspection commands |
+| `permissions-container-info` | Permissions | merge | Read-only docker and podman inspection commands (the `oc` rules moved to `permissions-cluster-info` in 0.2.0) |
+| `permissions-cluster-info` | Permissions | merge | Read-only `oc` (OpenShift) inspection — grants read access to whichever cluster you are logged into |
 | `permissions-toolchain-info` | Permissions | merge | Version probes for common dev toolchains |
+| `permissions-deny-cluster-write` | Permissions | merge | Hard-denies mutating and exec `oc`, `kubectl`, `helm` verbs — no prompt, not bypassable by `--auto` |
+| `permissions-deny-destructive` | Permissions | merge | Hard-denies `sudo`, root/home-anchored `rm -rf`, `dd`, `mkfs`, force-push, `reset --hard` |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
 | `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
+
+### About the `deny` presets
+
+opencode rejects a denied command outright — no approval prompt is shown, and
+`--auto` only auto-approves requests that are *not* explicitly denied. So a deny
+rule is the one tier that survives a habit of clicking "allow". Compound commands
+are split by opencode before matching, so `cd /x && oc delete pod y` is caught too.
+
+Two things to know:
+
+- **Install deny presets last.** Rules are last-match-wins and `merge` appends new
+  keys at the end. The shipped deny patterns are disjoint from every shipped allow
+  pattern (enforced by a test), so order does not matter among these presets — but a
+  broad hand-written rule of your own, like `"oc *": "allow"`, will win if it was
+  written after the deny.
+- **They are a guardrail, not a security boundary.** Env-var-prefixed
+  (`KUBECONFIG=x oc delete …`), `sh -c "…"`-wrapped and aliased invocations are not
+  matched.
+
+Upgrading `permissions-container-info` to 0.2.0 **does not revoke `oc` access an
+earlier install already granted**: `merge` never removes keys, and 0.2.0 no longer
+lists the `oc` rules. To clear them, run
+`opencode-presets remove permissions-cluster-info`.
 
 Install multiple at once:
 
 ```sh
 opencode-presets install jdtls-lombok jdtls-clean-workspace
 opencode-presets install permissions-git-safe permissions-shell-safe
+opencode-presets install permissions-cluster-info permissions-deny-cluster-write
 ```
 
 Presets whose path uses a prompt (like `mcp-http`) can't be
