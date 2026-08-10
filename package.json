@@ -28,6 +28,7 @@
     "watch": "tsc --watch",
     "test": "tsc && node --test dist/test/*.test.js",
     "coverage": "tsc && node --test --experimental-test-coverage dist/test/*.test.js",
+    "check-pins": "tsc && node scripts/check-pins.mjs",
     "prepare": "tsc",
     "prepublishOnly": "tsc"
   },
