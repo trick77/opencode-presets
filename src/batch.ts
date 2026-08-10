@@ -27,6 +27,10 @@ export interface BatchModule {
   promptValues?: Record<string, string>;
   resolvedPath?: string;
   stats?: ApplyStats & { preservedBatch: number; preservedExisting: number };
+  // Deny rules this module wanted to install that an existing key of the same
+  // name kept out. `merge` preserving a value is normally uninteresting; when
+  // the loser is a deny, a guardrail silently did not install.
+  shadowedDenies?: { key: string; current: string }[];
 }
 
 interface RemoveModule {
@@ -213,6 +217,11 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
       }
     }
 
+    if (m.meta.mode === 'merge') {
+      const shadowed = findShadowedDenies(fullBody, beforeThisModule);
+      if (shadowed.length > 0) m.shadowedDenies = shadowed;
+    }
+
     m.stats = { ...stats, preservedBatch, preservedExisting: stats.preserved - preservedBatch };
   }
 
@@ -245,7 +254,53 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
   await validateAfterWrite(target, cacheDir, schemaUrl, baselineValidation);
 
   console.log('');
-  console.log(renderFooter({ resetStats, modules, backupPath }));
+  console.log(renderFooter({ resetStats, modules, backupPath, target }));
+}
+
+// Deny rules in `body` that an existing key of the same name in `before` keeps
+// out. `merge` preserving an existing value is normally uninteresting — but
+// when the loser is a deny, a guardrail the user thinks they just installed is
+// silently absent, so it has to be named.
+export function findShadowedDenies(body: Json, before: Json): { key: string; current: string }[] {
+  if (!isPlainObject(body) || !isPlainObject(before)) return [];
+
+  const shadowed: { key: string; current: string }[] = [];
+  for (const [key, incoming] of Object.entries(body)) {
+    if (incoming !== 'deny') continue;
+    if (!(key in before)) continue;
+    const current = (before as JsonObject)[key];
+    if (current === 'deny') continue;
+    shadowed.push({ key, current: typeof current === 'string' ? current : JSON.stringify(current) });
+  }
+  return shadowed;
+}
+
+// opencode evaluates a per-agent ruleset after the global one, so an
+// agent.<name>.permission block wins over anything a permission module writes.
+// Installing global rules over a config that has one looks like it worked and
+// changes nothing for that agent — worth saying before the user confirms.
+export function agentOverrideWarnings(
+  modules: { meta: ConfMeta }[],
+  existing: JsonObject | null,
+): string[] {
+  if (!modules.some(m => m.meta.path === 'permission' || m.meta.path.startsWith('permission.'))) return [];
+
+  const agents = existing ? getAtPath(existing, 'agent') : undefined;
+  if (!isPlainObject(agents)) return [];
+
+  const overriding = Object.entries(agents)
+    .filter(([, cfg]) => isPlainObject(cfg) && 'permission' in (cfg as JsonObject))
+    .map(([name]) => name);
+  if (overriding.length === 0) return [];
+
+  return [
+    '    ' + c.warn('⚠  ') + `these agents set their own permission rules: ${overriding.join(', ')}`,
+    '    ' + c.dim('   agent rules are evaluated last, so they win over what is installed here'),
+    '    ' + c.dim('   fix: delete ') +
+      overriding.map(a => `agent.${a}.permission`).join(', ') +
+      c.dim(' to fall back to these rules,'),
+    '    ' + c.dim('        or repeat the same rules inside each agent block'),
+  ];
 }
 
 function renderSummary(
@@ -278,6 +333,8 @@ function renderSummary(
         c.dim(` → ${m.meta.path}`) + ' ' + colorMode(m.meta.mode));
       lines.push(wrap(m.meta.description, 72, '        '));
     }
+    for (const line of agentOverrideWarnings(modules, existing)) lines.push(line);
+
     const totalFetches = modules.reduce((n, m) => n + m.meta.fetch.length, 0);
     const totalPrompts = modules.reduce((n, m) => n + m.meta.prompts.length, 0);
     const totalPins = modules.reduce((n, m) => n + m.meta.pins.length, 0);
@@ -294,8 +351,8 @@ function renderSummary(
 }
 
 function renderFooter(
-  { resetStats, modules, backupPath }:
-  { resetStats: ResetStat[]; modules: BatchModule[]; backupPath: string | null }
+  { resetStats, modules, backupPath, target }:
+  { resetStats: ResetStat[]; modules: BatchModule[]; backupPath: string | null; target: string }
 ): string {
   const lines: string[] = [];
   lines.push(c.ok('✓') + ' applied ' + c.bold(`${modules.length} module${modules.length === 1 ? '' : 's'}`) +
@@ -322,6 +379,29 @@ function renderFooter(
       if (m.stats.overwritten) summary += `, overwritten ${m.stats.overwritten}`;
     }
     lines.push('  • ' + c.bold(m.meta.name) + c.meta(' — ') + summary);
+
+    // A preserved allow is noise; a preserved deny means a guardrail is missing
+    // from the config the user believes they just hardened.
+    for (const s of m.shadowedDenies ?? []) {
+      lines.push('    ' + c.warn('⚠ ') +
+        `${JSON.stringify(s.key)} is already "${s.current}" in your config — the deny was NOT applied`);
+    }
+  }
+  const shadowedPaths = [...new Set(
+    modules.filter(m => m.shadowedDenies?.length).map(m => m.resolvedPath ?? m.meta.path),
+  )];
+  if (shadowedPaths.length > 0) {
+    const names = modules.filter(m => m.shadowedDenies?.length).map(m => m.meta.name).join(' ');
+    lines.push('');
+    lines.push('  ' + c.warn('To apply those denies, pick one:'));
+    lines.push('    ' + c.dim('1.') + ` delete the listed keys from ${shadowedPaths.join(', ')} in ${target},`);
+    lines.push('       ' + c.dim(`then re-run: opencode-presets install ${names}`));
+    lines.push('    ' + c.dim('2.') + ' wipe the whole path and reinstall from scratch:');
+    for (const p of shadowedPaths) {
+      lines.push('       ' + c.bold(`opencode-presets install --reset ${p} ${names}`));
+    }
+    lines.push('       ' + c.dim('this also deletes any other hand-written rules at that path'));
+    lines.push('    ' + c.dim('3.') + ' keep your rule deliberately — nothing to do, but the guardrail is off');
   }
 
   const resetsApplied = resetStats.filter(r => !r.missing).length;

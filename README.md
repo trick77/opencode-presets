@@ -157,6 +157,28 @@ Two things to know:
   (`KUBECONFIG=x oc delete …`), `sh -c "…"`-wrapped and aliased invocations are not
   matched.
 
+Because `merge` never overwrites, a rule you already have with the *same pattern
+string* keeps a preset's deny out. The installer names each one and tells you how
+to fix it rather than letting the guardrail go missing quietly:
+
+```
+• permissions-deny-destructive — added 27, preserved 3
+  ⚠ "sudo *" is already "ask" in your config — the deny was NOT applied
+  ⚠ "rm -rf /" is already "allow" in your config — the deny was NOT applied
+
+To apply those denies, pick one:
+  1. delete the listed keys from permission.bash in ~/.config/opencode/opencode.json,
+     then re-run: opencode-presets install permissions-deny-destructive
+  2. wipe the whole path and reinstall from scratch:
+     opencode-presets install --reset permission.bash permissions-deny-destructive
+     this also deletes any other hand-written rules at that path
+  3. keep your rule deliberately — nothing to do, but the guardrail is off
+```
+
+It also warns *before* you confirm if any agent sets its own permission rules —
+`agent.<name>.permission` is evaluated after the global rules and wins, so global
+denies do nothing for that agent.
+
 Upgrading `permissions-container-info` to 0.2.0 **does not revoke `oc` access an
 earlier install already granted**: `merge` never removes keys, and 0.2.0 no longer
 lists the `oc` rules. To clear them, run

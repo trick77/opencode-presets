@@ -44,6 +44,15 @@ Order irrelevant.
   in a defaults bundle: `python -c` routes around every deny rule.
 - `remove <bundle>` strips all members. No ownership tracking — say so.
 
+## Warn, don't silently no-op
+
+`merge` preserving an existing key is normal. Preserving one whose incoming
+value is `deny` means a guardrail did not install — name the key and say how to
+fix it (`findShadowedDenies` in `src/batch.ts`). Same for
+`agent.<name>.permission`: it beats global rules, so warn before the confirm
+(`agentOverrideWarnings`). Every such warning states the concrete command or
+key to change — never just that something happened.
+
 Body is JSONC, must parse to JSON matching the `@path` leaf: any shape for
 `replace`, object for `merge`/`merge-overwrite`, array for `append`.
 Substitutions in body and `@path`: `{{cache}}`, `{{prompt:<name>}}`.
