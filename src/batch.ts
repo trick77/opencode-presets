@@ -394,7 +394,7 @@ function renderFooter(
   { resetStats: ResetStat[]; modules: BatchModule[]; backupPath: string | null; target: string }
 ): string {
   const lines: string[] = [];
-  lines.push(c.ok('✓') + ' applied ' + c.bold(`${modules.length} module${modules.length === 1 ? '' : 's'}`) +
+  lines.push(c.ok('✓') + ' applied ' + c.bold(`${modules.length} preset${modules.length === 1 ? '' : 's'}`) +
     (resetStats.length > 0 ? c.dim(` (after ${resetStats.length} reset${resetStats.length === 1 ? '' : 's'})`) : ''));
 
   for (const rs of resetStats) {
@@ -458,7 +458,7 @@ export async function runRemoveBatch(opts: RunRemoveBatchOpts): Promise<void> {
 
     const expandedBody = expandCacheInValue(body, cacheDir);
     if (/\{\{prompt:/.test(JSON.stringify(expandedBody)) && meta.mode !== 'replace') {
-      console.error(c.err('error: ') + `${meta.name} uses @prompt placeholders in a non-replace module; cannot remove.`);
+      console.error(c.err('error: ') + `${meta.name} uses @prompt placeholders in a non-replace preset; cannot remove.`);
       process.exit(1);
     }
 
@@ -689,9 +689,9 @@ export function distributeSetValues(modules: BatchModule[], setValues: SetValue[
     });
     if (matches.length === 0) {
       if (sv.scope !== undefined) {
-        throw new Error(`--set ${sv.scope}.${sv.name}: no module named "${sv.scope}" declares a prompt "${sv.name}"`);
+        throw new Error(`--set ${sv.scope}.${sv.name}: no preset named "${sv.scope}" declares a prompt "${sv.name}"`);
       }
-      throw new Error(`--set ${sv.name}: no installed module declares a prompt with that name`);
+      throw new Error(`--set ${sv.name}: no installed preset declares a prompt with that name`);
     }
     if (matches.length > 1) {
       const names = matches.map(m => m.meta.name).join(', ');
@@ -702,7 +702,7 @@ export function distributeSetValues(modules: BatchModule[], setValues: SetValue[
     const m = matches[0];
     m.promptValues ??= {};
     if (sv.name in m.promptValues) {
-      throw new Error(`--set ${sv.name}: value provided more than once for module "${m.meta.name}"`);
+      throw new Error(`--set ${sv.name}: value provided more than once for preset "${m.meta.name}"`);
     }
     m.promptValues[sv.name] = sv.value;
   }

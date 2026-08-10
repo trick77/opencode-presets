@@ -2,9 +2,9 @@
   <img src="logo.svg" alt="opencode-presets" width="720">
 </p>
 
-Small CLI that patches OpenCode config files from prepared presets.
-Use it to add LSP overrides, MCP servers, permission rules, and TUI
-preferences without hand-editing JSON.
+Ready-made presets for OpenCode: permission rules, MCP servers, LSP
+overrides, agent limits, TUI preferences. A small CLI merges them into
+your `opencode.json` and `tui.json` so you never hand-edit the JSON.
 
 ## Install
 
@@ -13,6 +13,151 @@ npm install -g opencode-presets
 ```
 
 Needs Node 22+.
+
+## Built-in presets
+
+Fresh install? Start with the permission bundle — one command, no prompts
+for the everyday read-only commands, and hard blocks on the destructive ones:
+
+```sh
+opencode-presets install permissions-recommended
+```
+
+| Preset | Category | Mode | Description |
+| --- | --- | --- | --- |
+| `permissions-recommended` | Permissions | bundle | **Start here.** Installs the six presets marked *In the bundle* |
+| `permissions-shell-safe` | Permissions | merge | In the bundle. Low-risk shell commands (ls, cat, grep, rg, jq, yq, etc.) |
+| `permissions-git-safe` | Permissions | merge | In the bundle. Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
+| `permissions-toolchain-info` | Permissions | merge | In the bundle. Version probes for common dev toolchains |
+| `permissions-container-info` | Permissions | merge | In the bundle. Read-only docker and podman inspection commands (the `oc` rules moved to `permissions-cluster-info` in 0.2.0) |
+| `permissions-deny-destructive` | Permissions | merge | In the bundle. Hard-denies `sudo`, root/home-anchored `rm -rf`, `dd`, `mkfs`, force-push, `reset --hard` |
+| `permissions-deny-cluster-write` | Permissions | merge | In the bundle. Hard-denies mutating and exec `oc`, `kubectl`, `helm` verbs — no prompt, not bypassable by `--auto` |
+| `permissions-build-tools` | Permissions | merge | Not in the bundle. Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |
+| `permissions-cluster-info` | Permissions | merge | Not in the bundle. Read-only `oc` (OpenShift) inspection — grants read access to whichever cluster you are logged into |
+| `permissions-webfetch-ask` | Permissions | merge | Not in the bundle. Requires approval before opencode uses the webfetch tool |
+| `jdtls-lombok` | LSP | replace | Makes jdtls lombok-aware via `-javaagent` flag (pins lombok 1.18.46, sha256-verified) |
+| `jdtls-clean-workspace` | LSP | replace | Stops jdtls from writing `.project`/`.classpath`/etc. into your project root |
+| `mcp-http` | MCP | replace | Add an HTTP MCP server (localhost or remote) with one custom header (prompts for id, URL, header name, header value) |
+| `mcp-http-noauth` | MCP | replace | Add an HTTP MCP server (localhost or remote) without auth headers (prompts for id, URL) |
+| `mcp-intellij` | MCP | replace | Add the JetBrains IDE MCP server (loopback HTTP, default port 64342) |
+| `mcp-litellm` | MCP | replace | Add a LiteLLM proxy's MCP gateway as a remote MCP server (prompts for gateway URL and LiteLLM key; auth via `x-litellm-api-key`, no login flow) |
+| `mcp-litellm-passthrough` | MCP | replace | Add one `x-mcp-<alias>-<header>` passthrough header to the `mcp.litellm` server so an upstream MCP server authenticates as you (run once per header; install `mcp-litellm` first) |
+| `mcp-playwright` | MCP | replace | Add the Playwright MCP server (local stdio via npx; pins `@playwright/mcp` 0.0.78) |
+| `mcp-vscode` | MCP | replace | Add the VS Code MCP server via the `JuehangQin.vscode-mcp-server` extension (loopback HTTP, default port 3000) |
+| `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing instead of `$0` (pair with `provider-litellm` to set the proxy URL and key; pins `opencode-plugin-litellm-pricing` 0.3.0) |
+| `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing` (prompts for base URL and API key; no models list) |
+| `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.2.0`) |
+| `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
+| `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
+| `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
+
+### Bundles
+
+A preset whose header is `@include` lines is a **bundle**: a list of other
+presets, with no rules of its own. `permissions-recommended` is the only one
+shipped, and this is all of it:
+
+```
+permissions-recommended
+  permissions-shell-safe           22 keys   ls, cat, grep, rg, jq, ps        allow
+  permissions-git-safe             40 keys   status, diff, log, blame, fetch  allow
+  permissions-toolchain-info       60 keys   node -v, python -V, mvn -v       allow
+  permissions-container-info       52 keys   docker/podman ps, logs, inspect  allow
+  permissions-deny-destructive     34 keys   sudo, dd, mkfs, rm -rf /, -f     deny
+  permissions-deny-cluster-write   64 keys   oc/kubectl/helm delete, exec     deny
+```
+
+The order is part of the definition: opencode is last-match-wins and `merge`
+appends new keys at the end, so the denies have to land after every allow.
+
+```sh
+opencode-presets install permissions-recommended
+opencode-presets install permissions-recommended permissions-build-tools
+```
+
+**Reset first?** Only if you already have hand-written `permission.bash` rules.
+`merge` never overwrites, so any rule of yours with the same pattern string as a
+preset's keeps that rule out — and when the casualty is a deny, a guardrail you
+think you installed is absent. Wiping the path first guarantees every rule lands:
+
+```sh
+jq '.permission.bash, .agent' ~/.config/opencode/opencode.json   # see what you'd lose
+opencode-presets install --reset permission.bash permissions-recommended
+```
+
+That deletes every hand-written rule at `permission.bash` — a backup is written
+first, and nothing else in the config is touched. On a config with no bash rules
+of your own it changes nothing, so skip it. Either way the installer names any
+deny that was kept out, so you can start with a plain install and only reset if
+it complains.
+
+`remove` expands a bundle the same way. There is no per-preset ownership
+tracking, so removing it also clears keys an earlier standalone install of a
+member wrote — the confirmation lists every preset first.
+
+Not in the bundle, on purpose:
+
+- `permissions-build-tools` — runs project-defined code, and `python -c "…"` /
+  `node -e "…"` execute commands opencode never sees as shell commands, so no
+  deny rule can match them.
+- `permissions-cluster-info` — read access to whichever cluster you are logged
+  into, production included. Worth an explicit decision.
+- `permissions-webfetch-ask` — *adds* friction; wrong for a defaults bundle.
+
+### About the `deny` presets
+
+A denied command is rejected outright — no prompt, and `--auto` only
+auto-approves what is *not* explicitly denied. That is the one tier a habit of
+clicking "allow" cannot defeat. Compound commands are split before matching, so
+`cd /x && oc delete pod y` is caught too.
+
+It is a guardrail, not a security boundary: env-prefixed
+(`KUBECONFIG=x oc delete …`), `sh -c "…"`-wrapped and aliased invocations slip
+through.
+
+Every shipped deny pattern is disjoint from every shipped allow pattern
+(enforced by a test), so install order does not matter among these presets. A
+broad hand-written rule of your own, like `"oc *": "allow"`, still wins if it
+was written after the deny — install the deny presets last.
+
+When one of your rules keeps a deny out, the installer says so instead of
+letting the guardrail go missing quietly:
+
+```
+• permissions-deny-destructive — added 27, preserved 3
+  ⚠ "sudo *" is already "ask" in your config — the deny was NOT applied
+  ⚠ "rm -rf /" is already "allow" in your config — the deny was NOT applied
+
+To apply those denies, pick one:
+  1. delete the listed keys from permission.bash in ~/.config/opencode/opencode.json,
+     then re-run: opencode-presets install permissions-deny-destructive
+  2. wipe the whole path and reinstall from scratch:
+     opencode-presets install --reset permission.bash permissions-deny-destructive
+     this also deletes any other hand-written rules at that path
+  3. keep your rule deliberately — nothing to do, but the guardrail is off
+```
+
+It also warns *before* you confirm if any agent sets its own permission rules:
+`agent.<name>.permission` is evaluated after the global rules and wins, so global
+denies do nothing for that agent.
+
+Upgrading `permissions-container-info` to 0.2.0 **does not revoke `oc` access an
+earlier install already granted** — `merge` never removes keys, and 0.2.0 no
+longer lists the `oc` rules. Clear them with
+`opencode-presets remove permissions-cluster-info`.
+
+Install multiple at once:
+
+```sh
+opencode-presets install jdtls-lombok jdtls-clean-workspace
+```
+
+Presets whose path uses a prompt (like `mcp-http`) can't be
+removed with `remove` — use `reset` instead:
+
+```sh
+opencode-presets reset mcp.openrag-tom
+```
 
 ## Use
 
@@ -79,144 +224,6 @@ flags. This keeps the wiring obvious ("this `--set` goes to *that*
 preset") and avoids surprise: in a non-TTY shell script, a bundled
 install would happily fill the first preset's prompts and then hang
 on a readline for the next.
-
-## Built-in presets
-
-| Preset | Category | Mode | Description |
-| --- | --- | --- | --- |
-| `permissions-recommended` | Permissions | bundle | **Start here.** Installs exactly the six `↳` modules, in that order |
-| ↳ `permissions-shell-safe` | Permissions | merge | Low-risk shell commands (ls, cat, grep, rg, jq, yq, etc.) |
-| ↳ `permissions-git-safe` | Permissions | merge | Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
-| ↳ `permissions-toolchain-info` | Permissions | merge | Version probes for common dev toolchains |
-| ↳ `permissions-container-info` | Permissions | merge | Read-only docker and podman inspection commands (the `oc` rules moved to `permissions-cluster-info` in 0.2.0) |
-| ↳ `permissions-deny-destructive` | Permissions | merge | Hard-denies `sudo`, root/home-anchored `rm -rf`, `dd`, `mkfs`, force-push, `reset --hard` |
-| ↳ `permissions-deny-cluster-write` | Permissions | merge | Hard-denies mutating and exec `oc`, `kubectl`, `helm` verbs — no prompt, not bypassable by `--auto` |
-| `permissions-build-tools` | Permissions | merge | Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go). Not in the bundle |
-| `permissions-cluster-info` | Permissions | merge | Read-only `oc` (OpenShift) inspection — grants read access to whichever cluster you are logged into. Not in the bundle |
-| `permissions-webfetch-ask` | Permissions | merge | Requires approval before opencode uses the webfetch tool. Not in the bundle |
-| `jdtls-lombok` | LSP | replace | Makes jdtls lombok-aware via `-javaagent` flag (pins lombok 1.18.46, sha256-verified) |
-| `jdtls-clean-workspace` | LSP | replace | Stops jdtls from writing `.project`/`.classpath`/etc. into your project root |
-| `mcp-http` | MCP | replace | Add an HTTP MCP server (localhost or remote) with one custom header (prompts for id, URL, header name, header value) |
-| `mcp-http-noauth` | MCP | replace | Add an HTTP MCP server (localhost or remote) without auth headers (prompts for id, URL) |
-| `mcp-intellij` | MCP | replace | Add the JetBrains IDE MCP server (loopback HTTP, default port 64342) |
-| `mcp-litellm` | MCP | replace | Add a LiteLLM proxy's MCP gateway as a remote MCP server (prompts for gateway URL and LiteLLM key; auth via `x-litellm-api-key`, no login flow) |
-| `mcp-litellm-passthrough` | MCP | replace | Add one `x-mcp-<alias>-<header>` passthrough header to the `mcp.litellm` server so an upstream MCP server authenticates as you (run once per header; install `mcp-litellm` first) |
-| `mcp-playwright` | MCP | replace | Add the Playwright MCP server (local stdio via npx; pins `@playwright/mcp` 0.0.78) |
-| `mcp-vscode` | MCP | replace | Add the VS Code MCP server via the `JuehangQin.vscode-mcp-server` extension (loopback HTTP, default port 3000) |
-| `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing instead of `$0` (pair with `provider-litellm` to set the proxy URL and key; pins `opencode-plugin-litellm-pricing` 0.3.0) |
-| `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing` (prompts for base URL and API key; no models list) |
-| `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.2.0`) |
-| `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
-| `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
-| `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
-
-### Bundles
-
-A preset whose header is `@include` lines is a **bundle**: a list of other
-presets, with no rules of its own. `permissions-recommended` is the only one
-shipped, and this is all of it:
-
-```
-permissions-recommended
-  permissions-shell-safe           22 keys   ls, cat, grep, rg, jq, ps        allow
-  permissions-git-safe             40 keys   status, diff, log, blame, fetch  allow
-  permissions-toolchain-info       60 keys   node -v, python -V, mvn -v       allow
-  permissions-container-info       52 keys   docker/podman ps, logs, inspect  allow
-  permissions-deny-destructive     34 keys   sudo, dd, mkfs, rm -rf /, -f     deny
-  permissions-deny-cluster-write   64 keys   oc/kubectl/helm delete, exec     deny
-```
-
-The order is part of the definition: opencode is last-match-wins and `merge`
-appends new keys at the end, so the denies have to land after every allow.
-
-```sh
-opencode-presets install permissions-recommended
-opencode-presets install permissions-recommended permissions-build-tools
-```
-
-**Reset first?** Only if you already have hand-written `permission.bash` rules.
-`merge` never overwrites, so any rule of yours with the same pattern string as a
-preset's keeps that rule out — and when the casualty is a deny, a guardrail you
-think you installed is absent. Wiping the path first guarantees every rule lands:
-
-```sh
-jq '.permission.bash, .agent' ~/.config/opencode/opencode.json   # see what you'd lose
-opencode-presets install --reset permission.bash permissions-recommended
-```
-
-That deletes every hand-written rule at `permission.bash` — a backup is written
-first, and nothing else in the config is touched. On a config with no bash rules
-of your own it changes nothing, so skip it. Either way the installer names any
-deny that was kept out, so you can start with a plain install and only reset if
-it complains.
-
-`remove` expands a bundle the same way. There is no per-preset ownership
-tracking, so removing it also clears keys an earlier standalone install of a
-member wrote — the confirmation lists every module first.
-
-Not in the bundle, on purpose:
-
-- `permissions-build-tools` — runs project-defined code, and `python -c "…"` /
-  `node -e "…"` execute commands opencode never sees as shell commands, so no
-  deny rule can match them.
-- `permissions-cluster-info` — read access to whichever cluster you are logged
-  into, production included. Worth an explicit decision.
-- `permissions-webfetch-ask` — *adds* friction; wrong for a defaults bundle.
-
-### About the `deny` presets
-
-A denied command is rejected outright — no prompt, and `--auto` only
-auto-approves what is *not* explicitly denied. That is the one tier a habit of
-clicking "allow" cannot defeat. Compound commands are split before matching, so
-`cd /x && oc delete pod y` is caught too.
-
-It is a guardrail, not a security boundary: env-prefixed
-(`KUBECONFIG=x oc delete …`), `sh -c "…"`-wrapped and aliased invocations slip
-through.
-
-Every shipped deny pattern is disjoint from every shipped allow pattern
-(enforced by a test), so install order does not matter among these presets. A
-broad hand-written rule of your own, like `"oc *": "allow"`, still wins if it
-was written after the deny — install the deny presets last.
-
-When one of your rules keeps a deny out, the installer says so instead of
-letting the guardrail go missing quietly:
-
-```
-• permissions-deny-destructive — added 27, preserved 3
-  ⚠ "sudo *" is already "ask" in your config — the deny was NOT applied
-  ⚠ "rm -rf /" is already "allow" in your config — the deny was NOT applied
-
-To apply those denies, pick one:
-  1. delete the listed keys from permission.bash in ~/.config/opencode/opencode.json,
-     then re-run: opencode-presets install permissions-deny-destructive
-  2. wipe the whole path and reinstall from scratch:
-     opencode-presets install --reset permission.bash permissions-deny-destructive
-     this also deletes any other hand-written rules at that path
-  3. keep your rule deliberately — nothing to do, but the guardrail is off
-```
-
-It also warns *before* you confirm if any agent sets its own permission rules:
-`agent.<name>.permission` is evaluated after the global rules and wins, so global
-denies do nothing for that agent.
-
-Upgrading `permissions-container-info` to 0.2.0 **does not revoke `oc` access an
-earlier install already granted** — `merge` never removes keys, and 0.2.0 no
-longer lists the `oc` rules. Clear them with
-`opencode-presets remove permissions-cluster-info`.
-
-Install multiple at once:
-
-```sh
-opencode-presets install jdtls-lombok jdtls-clean-workspace
-```
-
-Presets whose path uses a prompt (like `mcp-http`) can't be
-removed with `remove` — use `reset` instead:
-
-```sh
-opencode-presets reset mcp.openrag-tom
-```
 
 ## Modes
 

@@ -169,7 +169,7 @@ async function resolveConfArg(arg: string): Promise<string> {
 }
 
 // Resolve each CLI argument, then flatten any @include bundles into the leaf
-// modules they list. Bundles carry no @path and no body, so they must never
+// presets they list. Bundles carry no @path and no body, so they must never
 // reach runBatch/runRemoveBatch — only their expansion does.
 async function expandConfArgs(args: string[]): Promise<string[]> {
   const resolved = await Promise.all(args.map(resolveConfArg));
@@ -182,7 +182,7 @@ async function expandConfArgs(args: string[]): Promise<string[]> {
 }
 
 // An @include value is either a path relative to the including file, or a bare
-// module name looked up in the same search path as a CLI argument.
+// preset name looked up in the same search path as a CLI argument.
 async function resolveIncludeRef(ref: string, fromFile: string): Promise<string> {
   if (ref.includes('/') || ref.endsWith('.conf')) return resolve(dirname(fromFile), ref);
 
@@ -264,7 +264,7 @@ async function runReset(path: string): Promise<void> {
   console.log('  ' + c.warn('- ') + truncJson(current, 400));
   console.log('');
   console.log('  ' + c.warn('⚠  reset deletes EVERYTHING at this path, including any rules and'));
-  console.log('  ' + c.warn('   entries you set by hand. There is no per-module distinction.'));
+  console.log('  ' + c.warn('   entries you set by hand. There is no per-preset distinction.'));
   console.log('');
 
   const proceed = await confirm('Reset?');
@@ -411,13 +411,13 @@ async function loadJsonOrNull(path: string): Promise<Record<string, unknown> | n
 
 function printUsage(): void {
   console.log('Usage:');
-  console.log('  opencode-presets list [<dir>] [--long]            list available .conf modules');
+  console.log('  opencode-presets list [<dir>] [--long]            list available .conf presets');
   console.log('  opencode-presets install [--reset <path>]... [--set NAME=VALUE]... <conf>...');
-  console.log('                                                   apply one or more modules');
+  console.log('                                                   apply one or more presets');
   console.log('                                                   (with optional pre-resets;');
   console.log('                                                   @include bundles expand in order)');
   console.log('  --set NAME=VALUE         pre-fill a prompt non-interactively. Scope across multiple');
-  console.log('                           modules with --set <preset>.NAME=VALUE. Quote values with');
+  console.log('                           presets with --set <preset>.NAME=VALUE. Quote values with');
   console.log("                           single quotes ('...') if they contain $, !, *, etc.");
   console.log('  --set-env NAME=ENV_VAR   read the value from $ENV_VAR (recommended for secrets so');
   console.log('                           tokens never land in shell history or process listings)');
