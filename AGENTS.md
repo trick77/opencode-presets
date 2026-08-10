@@ -43,6 +43,10 @@ Order irrelevant.
 - Never `@include` a module that runs project code (`permissions-build-tools`)
   in a defaults bundle: `python -c` routes around every deny rule.
 - `remove <bundle>` strips all members. No ownership tracking — say so.
+- A bundle's `@description` is printed before the confirm (the bundle itself
+  never reaches the summary). Use it to say what the bundle is *not*.
+- Say "preset" in anything a user reads. "Module" is the internal word for the
+  parsed struct; it must not appear in output, errors or descriptions.
 
 ## Warn, don't silently no-op
 

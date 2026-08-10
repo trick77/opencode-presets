@@ -11,6 +11,7 @@
 
 import { basename } from 'node:path';
 import { parseConf } from './parse-conf.js';
+import type { ConfMeta } from './parse-conf.js';
 
 export class IncludeCycleError extends Error {}
 
@@ -19,9 +20,15 @@ export class IncludeCycleError extends Error {}
 // stays in bin/.
 export type IncludeResolver = (ref: string, fromFile: string) => Promise<string>;
 
+// Called once per bundle encountered. A bundle is expanded away before anything
+// else sees it, so its own @description would otherwise never reach the user —
+// and that description is where a bundle says what it is and is not.
+export type BundleVisitor = (meta: ConfMeta) => void;
+
 export async function expandIncludes(
   confPaths: string[],
   resolveRef: IncludeResolver,
+  onBundle?: BundleVisitor,
 ): Promise<string[]> {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -43,6 +50,7 @@ export async function expandIncludes(
       return;
     }
 
+    onBundle?.(meta);
     chain.push(confPath);
     for (const ref of meta.includes) {
       await visit(await resolveRef(ref, confPath));
