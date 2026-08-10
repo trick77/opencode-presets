@@ -96,6 +96,7 @@ on a readline for the next.
 | `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing instead of `$0` (pair with `provider-litellm` to set the proxy URL and key; pins `opencode-plugin-litellm-pricing` 0.3.0) |
 | `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing` (prompts for base URL and API key; no models list) |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.2.0`) |
+| `permissions-recommended` | Permissions | bundle | **Start here.** Pulls in the six modules below — the read-only ones first, then the two deny modules |
 | `permissions-git-safe` | Permissions | merge | Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
 | `permissions-webfetch-ask` | Permissions | merge | Requires approval before opencode uses the webfetch tool |
 | `permissions-shell-safe` | Permissions | merge | Low-risk shell commands (ls, cat, grep, rg, jq, yq, etc.) |
@@ -108,6 +109,35 @@ on a readline for the next.
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
 | `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
+
+### Bundles
+
+A preset whose header carries `@include` lines is a **bundle**: a pure list of
+other presets, with no `@path` and no rules of its own. Installing it installs
+what it lists, in the order listed — which matters for permissions, since
+opencode is last-match-wins and `merge` appends new keys at the end.
+
+```sh
+opencode-presets install permissions-recommended
+opencode-presets install permissions-recommended permissions-build-tools
+opencode-presets install permissions-recommended permissions-cluster-info
+```
+
+`remove` expands a bundle the same way and tells you how many presets it is
+about to strip before asking. There is no per-preset ownership tracking, so
+removing a bundle also clears keys an earlier standalone install of one of its
+members had written — the confirmation lists every module so you can see it.
+
+Three permission presets are deliberately **not** in the bundle:
+
+- `permissions-build-tools` — runs project-defined code (`npm test` executes
+  whatever `package.json` says). It also re-opens what the deny rules close:
+  `python -c "…"` and `node -e "…"` execute commands opencode never sees as
+  shell commands, so no deny rule can match them.
+- `permissions-cluster-info` — grants read on whichever cluster you are logged
+  into, production included. Worth an explicit decision.
+- `permissions-webfetch-ask` — *adds* friction, so it has no place in a
+  defaults bundle.
 
 ### About the `deny` presets
 
@@ -137,7 +167,6 @@ Install multiple at once:
 ```sh
 opencode-presets install jdtls-lombok jdtls-clean-workspace
 opencode-presets install permissions-git-safe permissions-shell-safe
-opencode-presets install permissions-cluster-info permissions-deny-cluster-write
 ```
 
 Presets whose path uses a prompt (like `mcp-http`) can't be

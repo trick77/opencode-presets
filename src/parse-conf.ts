@@ -34,6 +34,10 @@ export interface ConfMeta {
   fetch: FetchDirective[];
   prompts: PromptDirective[];
   pins: PinDirective[];
+  // Names or paths of other modules this one pulls in. A module with any
+  // @include is a bundle: a pure list, with no @path and no body of its own,
+  // so it can never apply anything itself. See expand-includes.ts.
+  includes: string[];
 }
 
 export interface ParsedConf {
@@ -62,6 +66,7 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
     fetch: [],
     prompts: [],
     pins: [],
+    includes: [],
   };
 
   let i = 0;
@@ -107,6 +112,10 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
         case 'pins':
           meta.pins.push(parsePin(value, filePath));
           break;
+        case 'include':
+          if (!value) throw parseError(filePath, i + 1, '@include needs a module name or path');
+          meta.includes.push(value);
+          break;
         default:
           throw parseError(filePath, i + 1, `unknown header key @${key}`);
       }
@@ -119,6 +128,24 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
   while (i < lines.length && lines[i].trim() === '') i++;
 
   const bodyText = lines.slice(i).join('\n').trim();
+
+  // A bundle is a pure list. Refusing @path and a body here is what keeps one
+  // from ever reaching an applier: with an empty @path, applyAtPath would treat
+  // the whole config as the leaf and replace it wholesale.
+  if (meta.includes.length > 0) {
+    if (meta.path) {
+      throw parseError(filePath, 1, '@include modules must not set @path — they only list other modules');
+    }
+    if (bodyText) {
+      throw parseError(filePath, i + 1, '@include modules must not have a body — they only list other modules');
+    }
+    for (const k of REQUIRED) {
+      if (k === 'path') continue;
+      if (!meta[k]) throw parseError(filePath, 1, `missing required header @${k}`);
+    }
+    return { meta, body: null };
+  }
+
   if (!bodyText) {
     throw parseError(filePath, i + 1, 'module has no body');
   }

@@ -30,6 +30,19 @@ Order irrelevant.
   Version must also appear in body or `@fetch` (tested).
 - `@prompt: name | type | help | default` — repeatable; type `text`/`secret`.
   Help/default optional. Default forbidden for `secret`. Empty input → default.
+- `@include: <name|path>` — repeatable. Makes the module a **bundle**.
+
+## Bundles (`@include`)
+
+- Bundle = pure list. No `@path`, no body — parser rejects both. That's what
+  stops one reaching an applier: empty `@path` → `applyAtPath` treats the whole
+  config as the leaf and replaces it.
+- `expandIncludes` (`src/expand-includes.ts`) flattens to leaves only, keeps
+  declaration order, dedupes a leaf to its first position, throws on cycles.
+- Order is load-bearing for permissions — list deny modules last.
+- Never `@include` a module that runs project code (`permissions-build-tools`)
+  in a defaults bundle: `python -c` routes around every deny rule.
+- `remove <bundle>` strips all members. No ownership tracking — say so.
 
 Body is JSONC, must parse to JSON matching the `@path` leaf: any shape for
 `replace`, object for `merge`/`merge-overwrite`, array for `append`.

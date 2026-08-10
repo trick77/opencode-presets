@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +11,7 @@ import { c, confirm, closeUi } from '../src/ui.js';
 import { listConfs } from '../src/list.js';
 import { runBatch, runRemoveBatch } from '../src/batch.js';
 import { parseInstallArgs, validateInstallPolicy, CliArgsError } from '../src/cli-args.js';
+import { expandIncludes } from '../src/expand-includes.js';
 import { validateAgainstSchema } from '../src/validate.js';
 import { printValidationIssue } from '../src/validation-output.js';
 
@@ -119,7 +120,7 @@ async function main(): Promise<void> {
       console.error(c.err('error: ') + policyError);
       process.exit(1);
     }
-    const resolved = await Promise.all(confPaths.map(resolveConfArg));
+    const resolved = await expandConfArgs(confPaths);
     await runBatch({
       resets,
       confPaths: resolved,
@@ -135,7 +136,7 @@ async function main(): Promise<void> {
   if (sub === 'remove') {
     const args = argv.slice(1);
     if (args.length === 0) { printUsage(); process.exit(1); }
-    const resolved = await Promise.all(args.map(resolveConfArg));
+    const resolved = await expandConfArgs(args);
     await runRemoveBatch({
       confPaths: resolved,
       targets: { config: TARGET, tui: TUI_TARGET },
@@ -164,6 +165,33 @@ async function resolveConfArg(arg: string): Promise<string> {
   console.error(c.err('error: ') + `no preset named "${arg}" found in:`);
   for (const dir of DEFAULT_PRESET_DIRS) console.error('  ' + dir);
   console.error('  ' + c.dim('(set OPENCODE_PRESETS_PATH to add more dirs, or pass an explicit path)'));
+  process.exit(1);
+}
+
+// Resolve each CLI argument, then flatten any @include bundles into the leaf
+// modules they list. Bundles carry no @path and no body, so they must never
+// reach runBatch/runRemoveBatch — only their expansion does.
+async function expandConfArgs(args: string[]): Promise<string[]> {
+  const resolved = await Promise.all(args.map(resolveConfArg));
+  try {
+    return await expandIncludes(resolved, resolveIncludeRef);
+  } catch (e) {
+    console.error(c.err('error: ') + (e instanceof Error ? e.message : String(e)));
+    process.exit(1);
+  }
+}
+
+// An @include value is either a path relative to the including file, or a bare
+// module name looked up in the same search path as a CLI argument.
+async function resolveIncludeRef(ref: string, fromFile: string): Promise<string> {
+  if (ref.includes('/') || ref.endsWith('.conf')) return resolve(dirname(fromFile), ref);
+
+  for (const dir of DEFAULT_PRESET_DIRS) {
+    const candidate = resolve(dir, ref + '.conf');
+    if (await fileExists(candidate)) return candidate;
+  }
+  console.error(c.err('error: ') + `${basename(fromFile, '.conf')} includes "${ref}", which was not found in:`);
+  for (const dir of DEFAULT_PRESET_DIRS) console.error('  ' + dir);
   process.exit(1);
 }
 
@@ -386,7 +414,8 @@ function printUsage(): void {
   console.log('  opencode-presets list [<dir>] [--long]            list available .conf modules');
   console.log('  opencode-presets install [--reset <path>]... [--set NAME=VALUE]... <conf>...');
   console.log('                                                   apply one or more modules');
-  console.log('                                                   (with optional pre-resets)');
+  console.log('                                                   (with optional pre-resets;');
+  console.log('                                                   @include bundles expand in order)');
   console.log('  --set NAME=VALUE         pre-fill a prompt non-interactively. Scope across multiple');
   console.log('                           modules with --set <preset>.NAME=VALUE. Quote values with');
   console.log("                           single quotes ('...') if they contain $, !, *, etc.");
