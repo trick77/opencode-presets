@@ -44,7 +44,7 @@ describe('distributeSetValues', () => {
     const m = mod('mcp-http', ['name']);
     assert.throws(
       () => distributeSetValues([m], [sv('typo', 'x')]),
-      /no installed module declares a prompt/,
+      /no installed preset declares a prompt/,
     );
   });
 
@@ -52,7 +52,7 @@ describe('distributeSetValues', () => {
     const m = mod('mcp-http', ['name']);
     assert.throws(
       () => distributeSetValues([m], [sv('name', 'x', 'other')]),
-      /no module named "other"/,
+      /no preset named "other"/,
     );
   });
 

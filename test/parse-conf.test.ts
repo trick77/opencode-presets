@@ -112,7 +112,7 @@ describe('parseConfString — @include', () => {
   });
 
   test('rejects an empty @include', () => {
-    assert.throws(() => parseConfString(bundleHeader + '// @include:\n'), /needs a module name or path/);
+    assert.throws(() => parseConfString(bundleHeader + '// @include:\n'), /needs a preset name or path/);
   });
 
   test('still requires the other headers', () => {

@@ -34,7 +34,7 @@ export interface ConfMeta {
   fetch: FetchDirective[];
   prompts: PromptDirective[];
   pins: PinDirective[];
-  // Names or paths of other modules this one pulls in. A module with any
+  // Names or paths of other presets this one pulls in. A preset with any
   // @include is a bundle: a pure list, with no @path and no body of its own,
   // so it can never apply anything itself. See expand-includes.ts.
   includes: string[];
@@ -113,7 +113,7 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
           meta.pins.push(parsePin(value, filePath));
           break;
         case 'include':
-          if (!value) throw parseError(filePath, i + 1, '@include needs a module name or path');
+          if (!value) throw parseError(filePath, i + 1, '@include needs a preset name or path');
           meta.includes.push(value);
           break;
         default:
@@ -134,10 +134,10 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
   // the whole config as the leaf and replace it wholesale.
   if (meta.includes.length > 0) {
     if (meta.path) {
-      throw parseError(filePath, 1, '@include modules must not set @path — they only list other modules');
+      throw parseError(filePath, 1, '@include presets are bundles: they must not set @path, only list other presets');
     }
     if (bodyText) {
-      throw parseError(filePath, i + 1, '@include modules must not have a body — they only list other modules');
+      throw parseError(filePath, i + 1, '@include presets are bundles: they must not have a body, only list other presets');
     }
     // A bundle never reaches an applier, so these would be silently dropped.
     // Rejecting them beats letting an author think they took effect.
@@ -145,7 +145,7 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
       ['fetch', meta.fetch.length], ['prompt', meta.prompts.length], ['pins', meta.pins.length],
     ] as const) {
       if (present) {
-        throw parseError(filePath, 1, `@include modules must not set @${key} — put it on the module that uses it`);
+        throw parseError(filePath, 1, `@include presets must not set @${key} — put it on the preset that uses it`);
       }
     }
     for (const k of REQUIRED) {
@@ -156,7 +156,7 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
   }
 
   if (!bodyText) {
-    throw parseError(filePath, i + 1, 'module has no body');
+    throw parseError(filePath, i + 1, 'preset has no body');
   }
 
   let body: unknown;

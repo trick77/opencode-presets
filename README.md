@@ -2,9 +2,9 @@
   <img src="logo.svg" alt="opencode-presets" width="720">
 </p>
 
-Small CLI that patches OpenCode config files from prepared presets.
-Use it to add LSP overrides, MCP servers, permission rules, and TUI
-preferences without hand-editing JSON.
+Ready-made presets for OpenCode: permission rules, MCP servers, LSP
+overrides, agent limits, TUI preferences. A small CLI merges them into
+your `opencode.json` and `tui.json` so you never hand-edit the JSON.
 
 ## Install
 
@@ -14,73 +14,14 @@ npm install -g opencode-presets
 
 Needs Node 22+.
 
-## Use
-
-```sh
-opencode-presets list                              # what's available
-opencode-presets install jdtls-lombok             # apply one preset by name
-opencode-presets install jdtls-lombok permissions-git-safe
-opencode-presets remove jdtls-lombok              # undo a preset
-opencode-presets install --reset permission ./presets/foo.conf  # wipe then install
-opencode-presets reset permission                 # wipe a section outright
-opencode-presets validate                         # check opencode.json and tui.json
-```
-
-Bare names are resolved through the preset search path (see "Where
-presets are found" below). You can always pass an explicit path
-instead, e.g. `install ./presets/jdtls-lombok.conf`.
-
-Every change shows a diff and asks before touching anything. A
-backup is written to `~/.cache/opencode-presets/backups/` before
-each write — no auto-pruning, so they pile up.
-
-`validate` checks the configured `opencode.json` and `tui.json`
-against OpenCode's current schemas. Use `validate config`,
-`validate tui`, or `validate all` to choose targets. Missing files
-are skipped in `all` mode; invalid files print labeled `where`,
-`what`, and `detail` lines and exit nonzero.
-
-### Non-interactive prompt values (`--set` / `--set-env`)
-
-Presets with `@prompt` directives normally ask interactively. To
-drive them from a script (or just paste a one-liner from a wiki),
-pre-fill any prompt with `--set NAME=VALUE`:
-
-```sh
-opencode-presets install mcp-http \
-  --set name=openrag \
-  --set url=https://openrag.example.internal/mcp \
-  --set headerName=X-Bitbucket-Token \
-  --set 'headerValue=raw-token-here'
-```
-
-**Quote values that contain shell metacharacters** (`$`, `!`, `*`,
-backticks, spaces, etc.) with single quotes — otherwise the shell
-expands them before `opencode-presets` ever sees the value. A
-Bitbucket PAT that starts with `$` will silently turn into an empty
-string without quoting.
-
-For secrets, prefer `--set-env NAME=ENV_VAR`. The CLI reads the
-value from the named environment variable at install time, so the
-token never appears in shell history or process listings:
-
-```sh
-export BITBUCKET_TOKEN=…
-opencode-presets install mcp-http \
-  --set name=openrag \
-  --set url=https://openrag.example.internal/mcp \
-  --set headerName=X-Bitbucket-Token \
-  --set-env headerValue=BITBUCKET_TOKEN
-```
-
-`--set` / `--set-env` apply to a single preset per invocation — run
-the command once per preset rather than bundling several with shared
-flags. This keeps the wiring obvious ("this `--set` goes to *that*
-preset") and avoids surprise: in a non-TTY shell script, a bundled
-install would happily fill the first preset's prompts and then hang
-on a readline for the next.
-
 ## Built-in presets
+
+Fresh install? Start with the permission bundle — one command, no prompts
+for the everyday read-only commands, and hard blocks on the destructive ones:
+
+```sh
+opencode-presets install permissions-recommended
+```
 
 | Preset | Category | Mode | Description |
 | --- | --- | --- | --- |
@@ -152,7 +93,7 @@ it complains.
 
 `remove` expands a bundle the same way. There is no per-preset ownership
 tracking, so removing it also clears keys an earlier standalone install of a
-member wrote — the confirmation lists every module first.
+member wrote — the confirmation lists every preset first.
 
 Not in the bundle, on purpose:
 
@@ -217,6 +158,72 @@ removed with `remove` — use `reset` instead:
 ```sh
 opencode-presets reset mcp.openrag-tom
 ```
+
+## Use
+
+```sh
+opencode-presets list                              # what's available
+opencode-presets install jdtls-lombok             # apply one preset by name
+opencode-presets install jdtls-lombok permissions-git-safe
+opencode-presets remove jdtls-lombok              # undo a preset
+opencode-presets install --reset permission ./presets/foo.conf  # wipe then install
+opencode-presets reset permission                 # wipe a section outright
+opencode-presets validate                         # check opencode.json and tui.json
+```
+
+Bare names are resolved through the preset search path (see "Where
+presets are found" below). You can always pass an explicit path
+instead, e.g. `install ./presets/jdtls-lombok.conf`.
+
+Every change shows a diff and asks before touching anything. A
+backup is written to `~/.cache/opencode-presets/backups/` before
+each write — no auto-pruning, so they pile up.
+
+`validate` checks the configured `opencode.json` and `tui.json`
+against OpenCode's current schemas. Use `validate config`,
+`validate tui`, or `validate all` to choose targets. Missing files
+are skipped in `all` mode; invalid files print labeled `where`,
+`what`, and `detail` lines and exit nonzero.
+
+### Non-interactive prompt values (`--set` / `--set-env`)
+
+Presets with `@prompt` directives normally ask interactively. To
+drive them from a script (or just paste a one-liner from a wiki),
+pre-fill any prompt with `--set NAME=VALUE`:
+
+```sh
+opencode-presets install mcp-http \
+  --set name=openrag \
+  --set url=https://openrag.example.internal/mcp \
+  --set headerName=X-Bitbucket-Token \
+  --set 'headerValue=raw-token-here'
+```
+
+**Quote values that contain shell metacharacters** (`$`, `!`, `*`,
+backticks, spaces, etc.) with single quotes — otherwise the shell
+expands them before `opencode-presets` ever sees the value. A
+Bitbucket PAT that starts with `$` will silently turn into an empty
+string without quoting.
+
+For secrets, prefer `--set-env NAME=ENV_VAR`. The CLI reads the
+value from the named environment variable at install time, so the
+token never appears in shell history or process listings:
+
+```sh
+export BITBUCKET_TOKEN=…
+opencode-presets install mcp-http \
+  --set name=openrag \
+  --set url=https://openrag.example.internal/mcp \
+  --set headerName=X-Bitbucket-Token \
+  --set-env headerValue=BITBUCKET_TOKEN
+```
+
+`--set` / `--set-env` apply to a single preset per invocation — run
+the command once per preset rather than bundling several with shared
+flags. This keeps the wiring obvious ("this `--set` goes to *that*
+preset") and avoids surprise: in a non-TTY shell script, a bundled
+install would happily fill the first preset's prompts and then hang
+on a readline for the next.
 
 ## Modes
 
