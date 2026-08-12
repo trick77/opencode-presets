@@ -52,8 +52,8 @@ trusting them, and keep deciding for yourself.
 | `mcp-litellm-passthrough` | MCP | replace | Add one `x-mcp-<alias>-<header>` passthrough header to the `mcp.litellm` server so an upstream MCP server authenticates as you (run once per header; install `mcp-litellm` first) |
 | `mcp-playwright` | MCP | replace | Add the Playwright MCP server (local stdio via npx; pins `@playwright/mcp` 0.0.79) |
 | `mcp-vscode` | MCP | replace | Add the VS Code MCP server via the `JuehangQin.vscode-mcp-server` extension (loopback HTTP, default port 3000) |
-| `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing from models.dev instead of `$0` (pair with `provider-litellm` to set the proxy URL and key; pins `opencode-plugin-litellm-pricing` 0.4.1) |
-| `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing` (prompts for base URL and API key; no models list) |
+| `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing from a LiteLLM-format price table instead of `$0` (pair with `provider-litellm` to set the proxy URL, key and price table; pins `opencode-plugin-litellm-pricing` 0.5.0) |
+| `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing` (prompts for base URL, API key and price-table URL — defaulting to LiteLLM's published `model_prices_and_context_window.json`; no models list) |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.2.0`) |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
