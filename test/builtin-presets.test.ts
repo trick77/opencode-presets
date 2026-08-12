@@ -67,12 +67,21 @@ test('ships a litellm provider preset that points at a proxy URL, no models', as
   // the price table the plugin bills against — prompted with LiteLLM's own
   // published file as the default, so anyone serving an enriched copy can
   // point at it instead.
+  // Defaults asserted too: `pricingURL`'s default is the whole point of the
+  // prompt, and it has to stay byte-identical to the plugin's own
+  // DEFAULT_PRICE_TABLE_URL — a typo here silently installs a dead URL that
+  // the plugin can no longer fall back from, since a written value wins.
   assert.deepEqual(
-    meta.prompts.map((p) => ({ name: p.name, type: p.type })),
+    meta.prompts.map((p) => ({ name: p.name, type: p.type, default: p.default })),
     [
-      { name: 'baseURL', type: 'text' },
-      { name: 'apiKey', type: 'secret' },
-      { name: 'pricingURL', type: 'text' },
+      { name: 'baseURL', type: 'text', default: 'http://localhost:4000/v1' },
+      { name: 'apiKey', type: 'secret', default: undefined },
+      {
+        name: 'pricingURL',
+        type: 'text',
+        default:
+          'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json',
+      },
     ],
   );
 
