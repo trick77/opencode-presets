@@ -50,7 +50,7 @@ test('ships a litellm plugin preset that appends the runtime-discovery plugin', 
   assert.equal(meta.name, 'plugin-litellm-pricing');
   assert.equal(meta.path, 'plugin');
   assert.equal(meta.mode, 'append');
-  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@0.4.1']);
+  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@0.5.0']);
 });
 
 test('ships a litellm provider preset that points at a proxy URL, no models', async () => {
@@ -63,12 +63,25 @@ test('ships a litellm provider preset that points at a proxy URL, no models', as
   assert.equal(meta.mode, 'replace');
 
   // The key is prompted for as a secret (hidden input) and written into the
-  // config, matching how mcp-http handles header credentials.
+  // config, matching how mcp-http handles header credentials. `pricingURL` is
+  // the price table the plugin bills against — prompted with LiteLLM's own
+  // published file as the default, so anyone serving an enriched copy can
+  // point at it instead.
+  // Defaults asserted too: `pricingURL`'s default is the whole point of the
+  // prompt, and it has to stay byte-identical to the plugin's own
+  // DEFAULT_PRICE_TABLE_URL — a typo here silently installs a dead URL that
+  // the plugin can no longer fall back from, since a written value wins.
   assert.deepEqual(
-    meta.prompts.map((p) => ({ name: p.name, type: p.type })),
+    meta.prompts.map((p) => ({ name: p.name, type: p.type, default: p.default })),
     [
-      { name: 'baseURL', type: 'text' },
-      { name: 'apiKey', type: 'secret' },
+      { name: 'baseURL', type: 'text', default: 'http://localhost:4000/v1' },
+      { name: 'apiKey', type: 'secret', default: undefined },
+      {
+        name: 'pricingURL',
+        type: 'text',
+        default:
+          'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json',
+      },
     ],
   );
 
@@ -80,6 +93,7 @@ test('ships a litellm provider preset that points at a proxy URL, no models', as
     options: {
       baseURL: '{{prompt:baseURL}}',
       apiKey: '{{prompt:apiKey}}',
+      pricingURL: '{{prompt:pricingURL}}',
     },
   });
 });
@@ -142,7 +156,7 @@ test('records the pinned third-party version of every preset that installs one',
   const expected: Record<string, Array<{ name: string; version: string }>> = {
     'jdtls-lombok': [{ name: 'lombok', version: '1.18.46' }],
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.79' }],
-    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.4.1' }],
+    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.5.0' }],
     'plugin-superpowers': [{ name: 'superpowers', version: '6.2.0' }],
   };
 
