@@ -56,7 +56,7 @@ something outside your opencode config say so in their description.
 | `mcp-playwright` | MCP | replace | Add the Playwright MCP server (local stdio via npx; pins `@playwright/mcp` 0.0.79) |
 | `mcp-vscode` | MCP | replace | Add the VS Code MCP server via the `JuehangQin.vscode-mcp-server` extension (loopback HTTP, default port 3000) |
 | `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing from a LiteLLM-format price table instead of `$0`. The table URL has no default, so install `provider-litellm` too — without it the models are still discovered, just unpriced (pins `opencode-plugin-litellm-pricing` 0.6.0) |
-| `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing`, and name the price table it bills against — the plugin has none of its own (prompts for base URL, API key and price-table URL, the last defaulting to LiteLLM's published `model_prices_and_context_window.json`; no models list) |
+| `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing`, and name the price table it bills against — neither the plugin nor this preset has a default one (prompts for base URL, API key and price-table URL; no models list) |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.3.0`) |
 | `plugin-dcg` | Plugin | append | Add `opencode-plugin-dcg` — runs every bash command past the external `dcg` binary and blocks the destructive ones. Install the binary yourself first: `brew install dicklesworthstone/tap/dcg`, or `curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh" \| bash -s -- --no-configure`. Without it the plugin warns once and commands run unchecked (pins `opencode-plugin-dcg` 0.1.0) |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
@@ -184,11 +184,26 @@ and the startup log says so, naming the provider:
   every model will be injected without pricing.
 ```
 
-`provider-litellm` writes that URL, defaulting to LiteLLM's published file. If
-your gateway serves an enriched copy — upstream's entries plus your own model
-names, with their real context and pricing — point the prompt at that instead
-and those models price by exact name rather than by substring against the
-public line.
+`provider-litellm` prompts for that URL and writes it. It offers no default
+either — a default here would put back the third-party host the plugin just
+stopped reaching for, one layer down — so a blank answer ends the install rather
+than writing someone else's URL into your config. Two answers are usual:
+
+```
+https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
+```
+
+LiteLLM's published table, which covers the public model line. Or, if your
+gateway serves an enriched copy — upstream's entries plus your own model names,
+with their real context and pricing — name that instead: those models then price
+by exact name rather than by substring against the public line. The URL is
+repeated in the preset's description, so it is on screen when the prompt asks.
+
+Non-interactively, pass it in:
+
+```sh
+opencode-presets install provider-litellm --set pricingURL=https://…/model_prices_and_context_window.json
+```
 
 **If you set this up before `provider-litellm` 0.4.0**, your config has no
 `pricingURL` at all — that release added the prompt. Until now it did not
