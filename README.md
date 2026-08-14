@@ -17,7 +17,8 @@ Needs Node 22+.
 ## Built-in presets
 
 Fresh install? Start with the permission bundle — one command, no prompts
-for the everyday read-only commands, and hard blocks on the destructive ones:
+for the everyday read-only commands, hard blocks on the destructive ones, and
+session sharing turned off:
 
 ```sh
 opencode-presets install permissions-recommended
@@ -25,8 +26,8 @@ opencode-presets install permissions-recommended
 
 **It is opinionated, and it is not a free pass.** These are one person's
 defaults for everyday work, not an audited sandbox and not a security boundary.
-They cut prompting for read-only commands and hard-block a list of known
-footguns — that is the whole claim. Anything not listed still falls through to a
+They cut prompting for read-only commands, hard-block a list of known
+footguns, and set `share` to "disabled" — that is the whole claim. Anything not listed still falls through to a
 prompt you have to read; the deny rules miss env-prefixed and `sh -c`-wrapped
 invocations; and the presets you add on top can undo them. Read the rules before
 trusting them, and keep deciding for yourself.
@@ -36,7 +37,7 @@ something outside your opencode config say so in their description.
 
 | Preset | Category | Mode | Description |
 | --- | --- | --- | --- |
-| `permissions-recommended` | Permissions | bundle | **Start here.** Installs the six presets marked *In the bundle* |
+| `permissions-recommended` | Permissions | bundle | **Start here.** Installs the seven presets marked *In the bundle* |
 | `permissions-shell-safe` | Permissions | merge | In the bundle. Low-risk shell commands (ls, cat, grep, rg, jq, yq, etc.) |
 | `permissions-git-safe` | Permissions | merge | In the bundle. Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
 | `permissions-toolchain-info` | Permissions | merge | In the bundle. Version probes for common dev toolchains |
@@ -59,6 +60,7 @@ something outside your opencode config say so in their description.
 | `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing`, and name the price table it bills against — neither the plugin nor this preset has a default one (prompts for base URL, API key and price-table URL; no models list) |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.3.0`) |
 | `plugin-dcg` | Plugin | append | **Experimental** — the plugin is at 0.1.x and its behaviour can still change. Add `opencode-plugin-dcg`: runs every bash command past the external `dcg` binary and blocks the destructive ones. Install the binary yourself first: `brew install dicklesworthstone/tap/dcg`, or `curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh" \| bash -s -- --no-configure`. Without it the plugin warns once and commands run unchecked (pins `opencode-plugin-dcg` 0.1.1) |
+| `privacy-share-disabled` | Privacy | replace | In the bundle. Sets `share` to "disabled" so opencode never publishes a session, automatically or on command |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
 | `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
@@ -77,6 +79,7 @@ permissions-recommended
   permissions-container-info       52 keys   docker/podman ps, logs, inspect  allow
   permissions-deny-destructive     34 keys   sudo, dd, mkfs, rm -rf /, -f     deny
   permissions-deny-cluster-write   64 keys   oc/kubectl/helm delete, exec     deny
+  privacy-share-disabled            1 key    share                            disabled
 ```
 
 The order is part of the definition: opencode is last-match-wins and `merge`

@@ -232,6 +232,7 @@ test('ships a recommended bundle that expands to the read-only modules, then the
     'permissions-container-info',
     'permissions-deny-destructive',
     'permissions-deny-cluster-write',
+    'privacy-share-disabled',
   ]);
 
   const resolveRef = async (ref: string) => resolve(dir, ref + '.conf');
@@ -242,6 +243,11 @@ test('ships a recommended bundle that expands to the read-only modules, then the
   // shadowed by.
   const actions = await Promise.all(expanded.map(async (p) => {
     const { body } = await parseConf(p);
+    // Only the permission modules carry allow/deny maps. A scalar-bodied module
+    // like privacy-share-disabled has no ordering constraint here, and running
+    // Object.values over its string body would spell it out character by
+    // character.
+    if (body === null || typeof body !== 'object' || Array.isArray(body)) return new Set<string>();
     return new Set(Object.values(body as Record<string, string>));
   }));
   const lastAllow = actions.reduce((last, a, i) => (a.has('allow') ? i : last), -1);
@@ -254,6 +260,18 @@ test('ships a recommended bundle that expands to the read-only modules, then the
     !expanded.some((p) => p.endsWith('permissions-build-tools.conf')),
     'the recommended bundle must not include permissions-build-tools',
   );
+});
+
+test('ships a share preset that turns opencode session sharing off', async () => {
+  const dir = resolve(process.cwd(), 'presets');
+  const { meta, body } = await parseConf(resolve(dir, 'privacy-share-disabled.conf'));
+
+  assert.equal(meta.path, 'share');
+  // `replace`, not `merge`: `share` is a scalar, and installing the bundle has
+  // to win over a stale `"auto"` already sitting in the config.
+  assert.equal(meta.mode, 'replace');
+  // One of the three values the opencode schema enumerates for `share`.
+  assert.equal(body, 'disabled');
 });
 
 test('every @include in a shipped preset points at another shipped preset', async () => {
