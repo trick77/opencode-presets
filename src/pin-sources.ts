@@ -13,6 +13,7 @@ export type PinSource =
 
 export const PIN_SOURCES: Record<string, PinSource> = {
   '@playwright/mcp': { kind: 'npm', pkg: '@playwright/mcp' },
+  'opencode-plugin-dcg': { kind: 'npm', pkg: 'opencode-plugin-dcg' },
   'opencode-plugin-litellm-pricing': { kind: 'npm', pkg: 'opencode-plugin-litellm-pricing' },
   'superpowers': { kind: 'github-release', repo: 'obra/superpowers' },
   // Tags, not the two obvious sources, both of which are wrong for lombok:

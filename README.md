@@ -31,6 +31,9 @@ prompt you have to read; the deny rules miss env-prefixed and `sh -c`-wrapped
 invocations; and the presets you add on top can undo them. Read the rules before
 trusting them, and keep deciding for yourself.
 
+Install any row below with `opencode-presets install <preset>`. Presets that need
+something outside your opencode config say so in their description.
+
 | Preset | Category | Mode | Description |
 | --- | --- | --- | --- |
 | `permissions-recommended` | Permissions | bundle | **Start here.** Installs the six presets marked *In the bundle* |
@@ -55,6 +58,7 @@ trusting them, and keep deciding for yourself.
 | `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing from a LiteLLM-format price table instead of `$0` (pair with `provider-litellm` to set the proxy URL, key and price table; pins `opencode-plugin-litellm-pricing` 0.5.0) |
 | `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing` (prompts for base URL, API key and price-table URL — defaulting to LiteLLM's published `model_prices_and_context_window.json`; no models list) |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.3.0`) |
+| `plugin-dcg` | Plugin | append | Add `opencode-plugin-dcg` — runs every bash command past the external `dcg` binary and blocks the destructive ones. Install the binary yourself first: `brew install dicklesworthstone/tap/dcg`, or `curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh" \| bash -s -- --no-configure`. Without it the plugin warns once and commands run unchecked (pins `opencode-plugin-dcg` 0.1.0) |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
 | `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
@@ -166,6 +170,67 @@ removed with `remove` — use `reset` instead:
 ```sh
 opencode-presets reset mcp.openrag-tom
 ```
+
+### Checking commands with `dcg`
+
+`plugin-dcg` is a second tier, not an alternative one: the deny rules
+glob-match the command line,
+[dcg](https://github.com/Dicklesworthstone/destructive_command_guard) parses it.
+That catches shapes a whole-line pattern cannot — it splits compound commands,
+and it extracts and re-checks inline scripts and heredoc bodies, so a
+`bash -c "git reset --hard"` or a `python -c "shutil.rmtree(…)"` is judged on
+what it would run. It is still a guardrail, not a boundary: env-var prefixes,
+shell aliases and anything dcg cannot statically reconstruct can slip past it
+too.
+
+**Run it alongside `permissions-recommended`, not instead of it.** opencode
+fires plugin hooks before the tool executes and asks for permission inside it,
+so the order is: dcg decides first, then your permission rules apply to whatever
+it let through. Two consequences worth knowing before you install both:
+
+- An `allow` rule does **not** buy a command past dcg. The allowlists still do
+  their job — no prompts for `ls`, `git status` and friends — but dcg has
+  already seen every one of them.
+- The overlap is only with the deny half, on the classic footguns (`rm -rf /`,
+  `dd`, `mkfs`). Redundant, and deliberately so: dcg fails **open** when its
+  binary is missing or times out, and only inspects the tools in
+  `DCG_PLUGIN_TOOLS` — the deny presets are what remains when it does. Keep
+  them.
+
+The two announce themselves differently, which is the point: a dcg block quotes
+its rule id and a suggestion, an opencode deny names the pattern it matched.
+
+The binary is a separate project and the preset does not install it. Homebrew
+covers macOS and Linux; the install script is upstream's own recommendation, and
+[dcg's docs](https://github.com/Dicklesworthstone/destructive_command_guard#installation)
+list the rest (cargo, prebuilt release binaries, manual build):
+
+```sh
+brew install dicklesworthstone/tap/dcg
+# or — binary only, no agent hooks wired up
+curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh?$(date +%s)" | bash -s -- --no-configure
+
+dcg --version
+dcg --robot test "rm -rf /"   # prints JSON with a deny decision
+```
+
+`--no-configure` is the flag that matters here. Left off, the installer wires
+dcg into the hooks of every coding agent it detects — Claude Code, Codex CLI,
+Cursor and friends — which `plugin-dcg` neither needs nor uses: it calls the
+binary itself, and all it needs is `dcg` on `PATH`. Drop the flag (or run dcg's
+own `dcg install` later) if you do want dcg guarding those other agents too.
+
+The binary lands in `~/.local/bin`. If that is not already on your `PATH`, add
+`--easy-mode`, which appends it to your shell rc files. And keep the URL quoted:
+the `?` cache-buster is a glob in zsh.
+
+Without the binary the plugin warns once per session and lets commands through
+unchecked. Everything else is tuned by environment variable, not by the config
+file the preset writes: `DCG_PLUGIN_FAIL_MODE=closed` blocks instead when dcg is
+unavailable, `DCG_PLUGIN_ENABLED=false` turns it off, and `DCG_PLUGIN_TOOLS`,
+`DCG_PLUGIN_TIMEOUT_MS` and `DCG_PLUGIN_BINARY` cover the rest. Which commands
+count as destructive is dcg's own policy, in `~/.config/dcg/config.toml` or a
+project `.dcg.toml`.
 
 ## Use
 
