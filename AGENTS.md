@@ -109,7 +109,7 @@ Matcher is whole-line glob; `*` matches any chars.
 
 ## Naming and placement
 
-- `presets/<category>-*.conf`: `permissions-`, `mcp-`, `lsp-`, `tui-`.
+- `presets/<category>-*.conf`: `permissions-`, `privacy-`, `mcp-`, `lsp-`, `tui-`.
 - One concern per module; two unrelated paths → split.
 - `@path` deep enough that modules don't overlap — same path in `replace`
   collides.
