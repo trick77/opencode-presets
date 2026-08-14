@@ -11,8 +11,14 @@ Das Eszett-Zeichen (U+00DF) nie verwenden. Stattdessen immer "ss" schreiben:
 ausser, grösser, heisst, Strasse, Fussgänger, Grösse, Masse, weiss, dass,
 schliessen, Fluss, muss, gemäss, Schluss, beisst, Mass.
 
-Das gilt für jeden deutschen Text ohne Ausnahme: Chat-Antworten, Pläne,
-Dokumentation, Commit-Messages, PR-Beschreibungen und Code-Kommentare.
+Das gilt für jeden deutschen Text, den du selbst schreibst: Chat-Antworten,
+Pläne, Dokumentation, Commit-Messages, PR-Beschreibungen und Code-Kommentare.
+
+Die Regel gilt für Prosa, nicht für Daten. Unverändert bleiben:
+Zeichenketten-Literale, Testdaten und Fixtures, persistierte oder von aussen
+gelieferte Werte sowie feststehende Eigennamen. Ein Assertion-Literal oder ein
+JSON-Fixture mit einem Eszett darin bleibt, wie es ist — schreibst du es um,
+schlägt der Test fehl oder die Daten stimmen nicht mehr überein.
 
 ## Code
 

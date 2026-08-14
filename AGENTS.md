@@ -163,5 +163,11 @@ projectlombok.org's download page each reported a stale "latest".
 an existing dest, so reusing the filename makes a bump a no-op. Verify the hash
 against a second source before committing.
 
+`@fetch` of a file in this repo (`rules/*`) → two PRs. Content first; its commit
+SHA does not exist to pin until merged. Second PR bumps `@version`, dest
+filename, URL commit and `sha256` together. Editing the file alone leaves the
+preset serving old bytes and `npm test` stays green — `npm run check-fetch-hashes`
+is what catches it (weekly in `pins.yaml`, not a per-PR gate).
+
 `npm publish` must pass `--provenance` — SLSA attestation, verifiable via
 `npm audit signatures`.

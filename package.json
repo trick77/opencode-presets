@@ -29,6 +29,7 @@
     "test": "tsc && node --test dist/test/*.test.js",
     "coverage": "tsc && node --test --experimental-test-coverage dist/test/*.test.js",
     "check-pins": "tsc && node scripts/check-pins.mjs",
+    "check-fetch-hashes": "tsc && node scripts/check-fetch-hashes.mjs",
     "prepare": "tsc",
     "prepublishOnly": "tsc"
   },
