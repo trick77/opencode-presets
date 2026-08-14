@@ -157,7 +157,7 @@ test('records the pinned third-party version of every preset that installs one',
     'jdtls-lombok': [{ name: 'lombok', version: '1.18.46' }],
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.79' }],
     'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.5.0' }],
-    'plugin-superpowers': [{ name: 'superpowers', version: '6.2.0' }],
+    'plugin-superpowers': [{ name: 'superpowers', version: '6.3.0' }],
   };
 
   for (const [name, pins] of Object.entries(expected)) {
