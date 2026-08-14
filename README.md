@@ -27,10 +27,11 @@ opencode-presets install permissions-recommended
 **It is opinionated, and it is not a free pass.** These are one person's
 defaults for everyday work, not an audited sandbox and not a security boundary.
 They cut prompting for read-only commands, hard-block a list of known
-footguns, and set `share` to "disabled" — that is the whole claim. Anything not listed still falls through to a
-prompt you have to read; the deny rules miss env-prefixed and `sh -c`-wrapped
-invocations; and the presets you add on top can undo them. Read the rules before
-trusting them, and keep deciding for yourself.
+footguns, and set `share` to "disabled" — that is the whole claim. Anything
+not listed still falls through to a prompt you have to read; the deny rules
+miss env-prefixed and `sh -c`-wrapped invocations; and the presets you add on
+top can undo them. Read the rules before trusting them, and keep deciding for
+yourself.
 
 Install any row below with `opencode-presets install <preset>`. Presets that need
 something outside your opencode config say so in their description.
