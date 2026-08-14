@@ -62,7 +62,7 @@ something outside your opencode config say so in their description.
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
 | `instructions-swiss-rules` | Instructions | append | Answer in German with Swiss orthography (never the eszett character, always `ss`), German code comments with German domain nouns in identifiers, and plans written as self-contained HTML to `docs/plans/<TICKET>-<slug>.html` with `<TICKET>` taken from the current branch name (fetches `rules/de-swiss.md` from this repo, sha256-verified) |
-| `skill-diagram-design` | Skill | append | Registers the `diagram-design` skill (27 editorial diagram types as self-contained HTML + SVG) by appending your clone's `skills/` dir to `skills.paths`. Clone `cathrynlavery/diagram-design` yourself first; prompts for the absolute path. Tracks `main` — the repo ships no tags. One-way: `remove` cannot undo an append preset that prompts, so uninstall by deleting the one `skills.paths` entry by hand |
+| `skill-diagram-design` | Skill | append | Registers the `diagram-design` skill (editorial diagram types as self-contained HTML + SVG) by appending your clone's `skills/` dir to `skills.paths`. Clone `cathrynlavery/diagram-design` yourself first; prompts for the absolute path. Tracks `main` — the repo ships no tags. One-way: `remove` cannot undo an append preset that prompts, so uninstall by deleting the one `skills.paths` entry by hand |
 | `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
 
 ### Bundles
