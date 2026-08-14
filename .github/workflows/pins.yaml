@@ -28,7 +28,16 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run build
+        # Local-only, no network. It rides along here rather than in `npm test`
+        # because updating a first-party @fetch takes two PRs — the content must
+        # be merged before its commit SHA exists to pin — so a mismatch between
+        # them is expected, not a broken build. always(): a pin drift and a
+        # stale hash are independent signals; seeing only the first hides the
+        # second.
+      - run: node scripts/check-fetch-hashes.mjs
+        if: always()
       - run: node scripts/check-pins.mjs
+        if: always()
         env:
           # Raises the anonymous GitHub API rate limit. Read-only, public data.
           GITHUB_TOKEN: ${{ github.token }}
