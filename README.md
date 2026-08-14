@@ -58,7 +58,7 @@ something outside your opencode config say so in their description.
 | `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing from a LiteLLM-format price table instead of `$0`. The table URL has no default, so install `provider-litellm` too — without it the models are still discovered, just unpriced (pins `opencode-plugin-litellm-pricing` 0.6.0) |
 | `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing`, and name the price table it bills against — neither the plugin nor this preset has a default one (prompts for base URL, API key and price-table URL; no models list) |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.3.0`) |
-| `plugin-dcg` | Plugin | append | Add `opencode-plugin-dcg` — runs every bash command past the external `dcg` binary and blocks the destructive ones. Install the binary yourself first: `brew install dicklesworthstone/tap/dcg`, or `curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh" \| bash -s -- --no-configure`. Without it the plugin warns once and commands run unchecked (pins `opencode-plugin-dcg` 0.1.0) |
+| `plugin-dcg` | Plugin | append | **Experimental** — the plugin is at 0.1.x and its behaviour can still change. Add `opencode-plugin-dcg`: runs every bash command past the external `dcg` binary and blocks the destructive ones. Install the binary yourself first: `brew install dicklesworthstone/tap/dcg`, or `curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh" \| bash -s -- --no-configure`. Without it the plugin warns once and commands run unchecked (pins `opencode-plugin-dcg` 0.1.1) |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
 | `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
@@ -220,6 +220,11 @@ It is a `replace` preset, so it rewrites the whole `provider.litellm` block and
 re-prompts for the base URL and key as well — have the key to hand.
 
 ### Checking commands with `dcg`
+
+**Experimental**, and the label belongs to `opencode-plugin-dcg`, not to the
+preset: the plugin is at 0.1.x, so its defaults and environment variables can
+still change between releases and the preset follows them. What the preset does
+is the same one-line plugin entry as every other `Plugin` row here.
 
 `plugin-dcg` is a second tier, not an alternative one: the deny rules
 glob-match the command line,
