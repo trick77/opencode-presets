@@ -160,12 +160,28 @@ longer lists the `oc` rules. Clear them with
 
 ### Checking commands with `dcg`
 
-`plugin-dcg` is a second, complementary tier: the deny rules glob-match the
-command line, [dcg](https://github.com/Dicklesworthstone/destructive_command_guard)
-parses it. That catches shapes a whole-line pattern cannot — including some of
-the wrapped and env-prefixed invocations the deny presets miss. It does not
-replace them: dcg runs as an opencode plugin, so it only sees what reaches the
-bash tool.
+`plugin-dcg` is a second tier, not an alternative one: the deny rules
+glob-match the command line,
+[dcg](https://github.com/Dicklesworthstone/destructive_command_guard) parses it.
+That catches shapes a whole-line pattern cannot — including some of the
+env-prefixed and `sh -c`-wrapped invocations the deny presets miss.
+
+**Run it alongside `permissions-recommended`, not instead of it.** opencode
+fires plugin hooks before the tool executes and asks for permission inside it,
+so the order is: dcg decides first, then your permission rules apply to whatever
+it let through. Two consequences worth knowing before you install both:
+
+- An `allow` rule does **not** buy a command past dcg. The allowlists still do
+  their job — no prompts for `ls`, `git status` and friends — but dcg has
+  already seen every one of them.
+- The overlap is only with the deny half, on the classic footguns (`rm -rf /`,
+  `dd`, `mkfs`). Redundant, and deliberately so: dcg fails **open** when its
+  binary is missing or times out, and only inspects the tools in
+  `DCG_PLUGIN_TOOLS` — the deny presets are what remains when it does. Keep
+  them.
+
+The two announce themselves differently, which is the point: a dcg block quotes
+its rule id and a suggestion, an opencode deny names the pattern it matched.
 
 The binary is a separate project and the preset does not install it. Homebrew
 covers macOS and Linux; the install script is upstream's own recommendation, and
