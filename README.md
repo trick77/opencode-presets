@@ -55,6 +55,7 @@ trusting them, and keep deciding for yourself.
 | `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing from a LiteLLM-format price table instead of `$0` (pair with `provider-litellm` to set the proxy URL, key and price table; pins `opencode-plugin-litellm-pricing` 0.5.0) |
 | `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing` (prompts for base URL, API key and price-table URL — defaulting to LiteLLM's published `model_prices_and_context_window.json`; no models list) |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.3.0`) |
+| `plugin-dcg` | Plugin | append | Add `opencode-plugin-dcg` — runs every bash command past the external `dcg` binary and blocks the destructive ones. Requires `dcg` installed separately; without it the plugin warns once and commands run unchecked (pins `opencode-plugin-dcg` 0.1.0) |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
 | `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
@@ -153,6 +154,31 @@ Upgrading `permissions-container-info` to 0.2.0 **does not revoke `oc` access an
 earlier install already granted** — `merge` never removes keys, and 0.2.0 no
 longer lists the `oc` rules. Clear them with
 `opencode-presets remove permissions-cluster-info`.
+
+### Checking commands with `dcg`
+
+`plugin-dcg` is a second, complementary tier: the deny rules glob-match the
+command line, [dcg](https://github.com/Dicklesworthstone/destructive_command_guard)
+parses it. That catches shapes a whole-line pattern cannot — including some of
+the wrapped and env-prefixed invocations the deny presets miss. It does not
+replace them: dcg runs as an opencode plugin, so it only sees what reaches the
+bash tool.
+
+The binary is a separate project and the preset does not install it — pick an
+install method from dcg's own docs, then check it works:
+
+```sh
+dcg --version
+dcg --robot test "rm -rf /"   # prints JSON with a deny decision
+```
+
+Without the binary the plugin warns once per session and lets commands through
+unchecked. Everything else is tuned by environment variable, not by the config
+file the preset writes: `DCG_PLUGIN_FAIL_MODE=closed` blocks instead when dcg is
+unavailable, `DCG_PLUGIN_ENABLED=false` turns it off, and `DCG_PLUGIN_TOOLS`,
+`DCG_PLUGIN_TIMEOUT_MS` and `DCG_PLUGIN_BINARY` cover the rest. Which commands
+count as destructive is dcg's own policy, in `~/.config/dcg/config.toml` or a
+project `.dcg.toml`.
 
 Install multiple at once:
 
