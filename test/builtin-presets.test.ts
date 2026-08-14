@@ -78,25 +78,19 @@ test('ships a litellm provider preset that points at a proxy URL, no models', as
   // the price table the plugin bills against — prompted with LiteLLM's own
   // published file as the default, so anyone serving an enriched copy can
   // point at it instead.
-  // The default is asserted because it is now the only price table there is:
-  // plugin 0.6.0 dropped DEFAULT_PRICE_TABLE_URL, so an unset or misspelled
-  // pricingURL means every model is injected unpriced, with nothing upstream
-  // left to fall back to. Dropping the default here instead is not an option
-  // either — a prompt with no default and no input exits 1 (src/batch.ts), so
-  // it would turn every install into a URL-paste. The default stands in for
-  // the hardcoded one the plugin deliberately removed, with the difference
-  // that the user sees and confirms this one at install time.
+  // `pricingURL` has no default, and that is asserted rather than assumed:
+  // plugin 0.6.0 removed DEFAULT_PRICE_TABLE_URL so it would never fetch a
+  // host its operator had not named, and a default here would have reinstated
+  // exactly that, one layer down. The cost is that a blank answer aborts the
+  // install (src/batch.ts) instead of quietly writing someone else's URL into
+  // your config — which is the intended trade. The published table is in the
+  // preset's @description, where it can be read and pasted.
   assert.deepEqual(
     meta.prompts.map((p) => ({ name: p.name, type: p.type, default: p.default })),
     [
       { name: 'baseURL', type: 'text', default: 'http://localhost:4000/v1' },
       { name: 'apiKey', type: 'secret', default: undefined },
-      {
-        name: 'pricingURL',
-        type: 'text',
-        default:
-          'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json',
-      },
+      { name: 'pricingURL', type: 'text', default: undefined },
     ],
   );
 
