@@ -34,7 +34,7 @@ gilt für neuen Code; in bestehenden Dateien der dortigen Konvention folgen.
 
 ## Pläne als HTML
 
-Jeden Plan als eigenständige HTML-Datei nach `docs/german/` im aktuellen
+Jeden Plan als eigenständige HTML-Datei nach `docs/plans/` im aktuellen
 Projekt schreiben. Verzeichnis bei Bedarf anlegen.
 
 Dateiname: `<TICKET>-<slug>.html`, zum Beispiel
