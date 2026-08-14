@@ -50,7 +50,7 @@ test('ships a litellm plugin preset that appends the runtime-discovery plugin', 
   assert.equal(meta.name, 'plugin-litellm-pricing');
   assert.equal(meta.path, 'plugin');
   assert.equal(meta.mode, 'append');
-  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@0.5.0']);
+  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@0.6.0']);
 });
 
 test('ships a dcg plugin preset that appends the destructive-command guard plugin', async () => {
@@ -78,10 +78,14 @@ test('ships a litellm provider preset that points at a proxy URL, no models', as
   // the price table the plugin bills against — prompted with LiteLLM's own
   // published file as the default, so anyone serving an enriched copy can
   // point at it instead.
-  // Defaults asserted too: `pricingURL`'s default is the whole point of the
-  // prompt, and it has to stay byte-identical to the plugin's own
-  // DEFAULT_PRICE_TABLE_URL — a typo here silently installs a dead URL that
-  // the plugin can no longer fall back from, since a written value wins.
+  // The default is asserted because it is now the only price table there is:
+  // plugin 0.6.0 dropped DEFAULT_PRICE_TABLE_URL, so an unset or misspelled
+  // pricingURL means every model is injected unpriced, with nothing upstream
+  // left to fall back to. Dropping the default here instead is not an option
+  // either — a prompt with no default and no input exits 1 (src/batch.ts), so
+  // it would turn every install into a URL-paste. The default stands in for
+  // the hardcoded one the plugin deliberately removed, with the difference
+  // that the user sees and confirms this one at install time.
   assert.deepEqual(
     meta.prompts.map((p) => ({ name: p.name, type: p.type, default: p.default })),
     [
@@ -168,7 +172,7 @@ test('records the pinned third-party version of every preset that installs one',
     'jdtls-lombok': [{ name: 'lombok', version: '1.18.46' }],
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.79' }],
     'plugin-dcg': [{ name: 'opencode-plugin-dcg', version: '0.1.0' }],
-    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.5.0' }],
+    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.6.0' }],
     'plugin-superpowers': [{ name: 'superpowers', version: '6.3.0' }],
   };
 

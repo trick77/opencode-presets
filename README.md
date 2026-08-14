@@ -55,8 +55,8 @@ something outside your opencode config say so in their description.
 | `mcp-litellm-passthrough` | MCP | replace | Add one `x-mcp-<alias>-<header>` passthrough header to the `mcp.litellm` server so an upstream MCP server authenticates as you (run once per header; install `mcp-litellm` first) |
 | `mcp-playwright` | MCP | replace | Add the Playwright MCP server (local stdio via npx; pins `@playwright/mcp` 0.0.79) |
 | `mcp-vscode` | MCP | replace | Add the VS Code MCP server via the `JuehangQin.vscode-mcp-server` extension (loopback HTTP, default port 3000) |
-| `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing from a LiteLLM-format price table instead of `$0` (pair with `provider-litellm` to set the proxy URL, key and price table; pins `opencode-plugin-litellm-pricing` 0.5.0) |
-| `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing` (prompts for base URL, API key and price-table URL — defaulting to LiteLLM's published `model_prices_and_context_window.json`; no models list) |
+| `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing from a LiteLLM-format price table instead of `$0`. The table URL has no default, so install `provider-litellm` too — without it the models are still discovered, just unpriced (pins `opencode-plugin-litellm-pricing` 0.6.0) |
+| `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing`, and name the price table it bills against — the plugin has none of its own (prompts for base URL, API key and price-table URL, the last defaulting to LiteLLM's published `model_prices_and_context_window.json`; no models list) |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.3.0`) |
 | `plugin-dcg` | Plugin | append | Add `opencode-plugin-dcg` — runs every bash command past the external `dcg` binary and blocks the destructive ones. Install the binary yourself first: `brew install dicklesworthstone/tap/dcg`, or `curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh" \| bash -s -- --no-configure`. Without it the plugin warns once and commands run unchecked (pins `opencode-plugin-dcg` 0.1.0) |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
@@ -170,6 +170,39 @@ removed with `remove` — use `reset` instead:
 ```sh
 opencode-presets reset mcp.openrag-tom
 ```
+
+### Pricing a LiteLLM proxy
+
+`plugin-litellm-pricing` 0.6.0 dropped the built-in price-table URL: the plugin
+now fetches the table you name in `options.pricingURL` and nothing else. Name
+none and the models are still discovered and injected — they just carry no cost,
+and the startup log says so, naming the provider:
+
+```
+[litellm-pricing] provider "litellm" has no options.pricingURL — set it to a
+  price table in LiteLLM `model_prices_and_context_window.json` format;
+  every model will be injected without pricing.
+```
+
+`provider-litellm` writes that URL, defaulting to LiteLLM's published file. If
+your gateway serves an enriched copy — upstream's entries plus your own model
+names, with their real context and pricing — point the prompt at that instead
+and those models price by exact name rather than by substring against the
+public line.
+
+**If you set this up before `provider-litellm` 0.4.0**, your config has no
+`pricingURL` at all — that release added the prompt. Until now it did not
+matter: plugin 0.4.1 priced from models.dev, and 0.5.0 fell back to LiteLLM's
+published file when the option was unset. 0.6.0 has neither. Nothing warns you
+at install time either, because `plugin-litellm-pricing` and `provider-litellm`
+are separate presets and bumping the first does not touch the second. Re-run it:
+
+```sh
+opencode-presets install provider-litellm
+```
+
+It is a `replace` preset, so it rewrites the whole `provider.litellm` block and
+re-prompts for the base URL and key as well — have the key to hand.
 
 ### Checking commands with `dcg`
 
