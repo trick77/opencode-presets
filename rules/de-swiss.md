@@ -21,10 +21,13 @@ Code-Kommentare auf Deutsch schreiben.
 Fachbegriffe der Domäne bleiben deutsch, auch in Bezeichnern: `Schadenmeldung`,
 nicht `ClaimReport`.
 
-Strukturelle Benennung bleibt englisch — Accessoren, Boolean-Präfixe,
+Deutsch sind nur die Substantive der Domäne. Alles Strukturelle bleibt
+englisch — Verben und Präfixe in Methodennamen, Boolean-Präfixe,
 Test-Methodenverben, Framework-Hooks, Sprach-Keywords sowie Framework- und
-API-Namen. Also: `getSchadenmeldung()`, `isSchadenmeldungOffen()`,
-`SchadenmeldungRepository`.
+API-Namen. Also: `getSchadenmeldung()`, `hasSchadenmeldung()`,
+`findSchadenmeldungByPolice()`, `SchadenmeldungRepository` — nicht
+`isSchadenmeldungOffen()`, denn "offen" ist ein Zustandsadjektiv und kein
+Fachbegriff der Domäne, also `isSchadenmeldungOpen()`.
 
 Bestehenden Code nicht umbenennen, nur weil er englisch benannt ist. Die Regel
 gilt für neuen Code; in bestehenden Dateien der dortigen Konvention folgen.
