@@ -31,6 +31,9 @@ prompt you have to read; the deny rules miss env-prefixed and `sh -c`-wrapped
 invocations; and the presets you add on top can undo them. Read the rules before
 trusting them, and keep deciding for yourself.
 
+Install any row below with `opencode-presets install <preset>`. Presets that need
+something outside your opencode config say so in their description.
+
 | Preset | Category | Mode | Description |
 | --- | --- | --- | --- |
 | `permissions-recommended` | Permissions | bundle | **Start here.** Installs the six presets marked *In the bundle* |
@@ -55,7 +58,7 @@ trusting them, and keep deciding for yourself.
 | `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing from a LiteLLM-format price table instead of `$0` (pair with `provider-litellm` to set the proxy URL, key and price table; pins `opencode-plugin-litellm-pricing` 0.5.0) |
 | `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing` (prompts for base URL, API key and price-table URL — defaulting to LiteLLM's published `model_prices_and_context_window.json`; no models list) |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.3.0`) |
-| `plugin-dcg` | Plugin | append | Add `opencode-plugin-dcg` — runs every bash command past the external `dcg` binary and blocks the destructive ones. Requires `dcg` installed separately; without it the plugin warns once and commands run unchecked (pins `opencode-plugin-dcg` 0.1.0) |
+| `plugin-dcg` | Plugin | append | Add `opencode-plugin-dcg` — runs every bash command past the external `dcg` binary and blocks the destructive ones. Install the binary yourself first: `brew install dicklesworthstone/tap/dcg`, or `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh \| bash -s -- --easy-mode`. Without it the plugin warns once and commands run unchecked (pins `opencode-plugin-dcg` 0.1.0) |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
 | `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
@@ -164,13 +167,22 @@ the wrapped and env-prefixed invocations the deny presets miss. It does not
 replace them: dcg runs as an opencode plugin, so it only sees what reaches the
 bash tool.
 
-The binary is a separate project and the preset does not install it — pick an
-install method from dcg's own docs, then check it works:
+The binary is a separate project and the preset does not install it. Homebrew
+covers macOS and Linux; the install script is upstream's own recommendation, and
+[dcg's docs](https://github.com/Dicklesworthstone/destructive_command_guard#installation)
+list the rest (cargo, prebuilt release binaries, manual build):
 
 ```sh
+brew install dicklesworthstone/tap/dcg
+# or
+curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh" | bash -s -- --easy-mode
+
 dcg --version
 dcg --robot test "rm -rf /"   # prints JSON with a deny decision
 ```
+
+Skip dcg's own `dcg install` step: it wires dcg into coding agents' hooks, and
+`plugin-dcg` calls the binary itself. All the plugin needs is `dcg` on `PATH`.
 
 Without the binary the plugin warns once per session and lets commands through
 unchecked. Everything else is tuned by environment variable, not by the config
