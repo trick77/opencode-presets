@@ -60,7 +60,7 @@ something outside your opencode config say so in their description.
 | `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing from a LiteLLM-format price table instead of `$0`. The table URL has no default, so install `provider-litellm` too — without it the models are still discovered, just unpriced (pins `opencode-plugin-litellm-pricing` 0.6.0) |
 | `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing`, and name the price table it bills against — neither the plugin nor this preset has a default one (prompts for base URL, API key and price-table URL; no models list) |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.3.0`) |
-| `plugin-dcg` | Plugin | append | **Experimental** — the plugin is at 0.1.x and its behaviour can still change. Add `opencode-plugin-dcg`: runs every bash command past the external `dcg` binary and blocks the destructive ones. Install the binary yourself first: `brew install dicklesworthstone/tap/dcg`, or `curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh" \| bash -s -- --no-configure`. Without it the plugin warns once and commands run unchecked (pins `opencode-plugin-dcg` 0.1.1) |
+| `plugin-dcg` | Plugin | append | **Experimental** — the plugin is at 0.2.x and its behaviour can still change. Add `opencode-plugin-dcg`: runs every bash command past the external `dcg` binary and blocks the destructive ones. Install the binary yourself first: `brew install dicklesworthstone/tap/dcg`, or `curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh" \| bash -s -- --no-configure`. Without it the plugin warns once and commands run unchecked (pins `opencode-plugin-dcg` 0.2.0) |
 | `privacy-share-disabled` | Privacy | replace | In the bundle. Sets `share` to "disabled" so opencode never publishes a session, automatically or on command |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
@@ -228,7 +228,7 @@ re-prompts for the base URL and key as well — have the key to hand.
 ### Checking commands with `dcg`
 
 **Experimental**, and the label belongs to `opencode-plugin-dcg`, not to the
-preset: the plugin is at 0.1.x, so its defaults and environment variables can
+preset: the plugin is at 0.2.x, so its defaults and environment variables can
 still change between releases and the preset follows them. What the preset does
 is the same one-line plugin entry as every other `Plugin` row here.
 
@@ -284,12 +284,20 @@ The binary lands in `~/.local/bin`. If that is not already on your `PATH`, add
 the `?` cache-buster is a glob in zsh.
 
 Without the binary the plugin warns once per session and lets commands through
-unchecked. Everything else is tuned by environment variable, not by the config
-file the preset writes: `DCG_PLUGIN_FAIL_MODE=closed` blocks instead when dcg is
-unavailable, `DCG_PLUGIN_ENABLED=false` turns it off, and `DCG_PLUGIN_TOOLS`,
-`DCG_PLUGIN_TIMEOUT_MS` and `DCG_PLUGIN_BINARY` cover the rest. Which commands
-count as destructive is dcg's own policy, in `~/.config/dcg/config.toml` or a
-project `.dcg.toml`.
+unchecked. Everything else is tuned by environment variable: `DCG_PLUGIN_FAIL_MODE=closed`
+blocks instead when dcg is unavailable, `DCG_PLUGIN_ENABLED=false` turns it off,
+and `DCG_PLUGIN_TOOLS`, `DCG_PLUGIN_TIMEOUT_MS` and `DCG_PLUGIN_BINARY` cover the
+rest. Since plugin 0.2.0 the same five settings can also live in the config file
+the preset writes, which is the durable place for them — replace the plugin
+string with a `[spec, options]` pair and the environment still overrides it:
+
+```json
+"plugin": [["opencode-plugin-dcg@0.2.0", { "failMode": "closed" }]]
+```
+
+The preset writes the plain string; edit it by hand if you want the options
+form. Which commands count as destructive is dcg's own policy, in
+`~/.config/dcg/config.toml` or a project `.dcg.toml`.
 
 ## Use
 
