@@ -50,7 +50,7 @@ test('ships a litellm plugin preset that appends the runtime-discovery plugin', 
   assert.equal(meta.name, 'plugin-litellm-pricing');
   assert.equal(meta.path, 'plugin');
   assert.equal(meta.mode, 'append');
-  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@0.6.0']);
+  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@0.7.0']);
 });
 
 test('ships a dcg plugin preset that appends the destructive-command guard plugin', async () => {
@@ -62,6 +62,47 @@ test('ships a dcg plugin preset that appends the destructive-command guard plugi
   assert.equal(meta.path, 'plugin');
   assert.equal(meta.mode, 'append');
   assert.deepEqual(body, ['opencode-plugin-dcg@0.2.0']);
+
+  // The plugin is a shim over an external binary. Without dcg on PATH it warns
+  // once and every command runs unchecked — a guard sitting in the config that
+  // is not guarding, which is worse than no plugin at all. The preset declares
+  // the dependency so install refuses instead of writing that state.
+  assert.deepEqual(meta.requiresBin, ['dcg']);
+});
+
+test('only the presets that drive an external binary declare @requires-bin', async () => {
+  // A precondition that refuses an install is not something to acquire by
+  // accident: every preset carrying one is listed here on purpose.
+  const expected: Record<string, string[]> = {
+    'plugin-dcg': ['dcg'],
+  };
+
+  for (const file of await shippedPresets()) {
+    const { meta } = await parseConf(file);
+    assert.deepEqual(meta.requiresBin, expected[meta.name] ?? [], `${meta.name} requiresBin`);
+  }
+});
+
+test('the diagram-design skill preset takes a validated dir, and writes exactly it', async () => {
+  const preset = resolve(process.cwd(), 'presets/skill-diagram-design.conf');
+
+  const { meta, body } = await parseConf(preset);
+
+  assert.equal(meta.path, 'skills.paths');
+  assert.equal(meta.mode, 'append');
+
+  // Typed `dir`, so install resolves and stats it and refuses a path that is
+  // not there — the failure this replaces was a dead skills.paths entry that
+  // opencode ignores in silence.
+  assert.deepEqual(
+    meta.prompts.map((p) => ({ name: p.name, type: p.type })),
+    [{ name: 'skillsDir', type: 'dir' }],
+  );
+
+  // The prompted path is written verbatim, with no suffix bolted on. A body of
+  // `{{prompt:x}}/skills` would validate the clone root while writing a path
+  // nothing checked — the exact gap the `dir` type exists to close.
+  assert.deepEqual(body, ['{{prompt:skillsDir}}']);
 });
 
 test('ships a litellm provider preset that points at a proxy URL, no models', async () => {
@@ -74,11 +115,11 @@ test('ships a litellm provider preset that points at a proxy URL, no models', as
   assert.equal(meta.mode, 'replace');
 
   // The key is prompted for as a secret (hidden input) and written into the
-  // config, matching how mcp-http handles header credentials. `pricingURL` is
-  // the price table the plugin bills against — prompted with LiteLLM's own
-  // published file as the default, so anyone serving an enriched copy can
-  // point at it instead.
-  // `pricingURL` has no default, and that is asserted rather than assumed:
+  // config, matching how mcp-http handles header credentials. `catalogURL` is
+  // the model catalog the plugin prices against — context windows, modalities
+  // and costs — so anyone serving an enriched copy can point at that instead
+  // of LiteLLM's published file.
+  // `catalogURL` has no default, and that is asserted rather than assumed:
   // plugin 0.6.0 removed DEFAULT_PRICE_TABLE_URL so it would never fetch a
   // host its operator had not named, and a default here would have reinstated
   // exactly that, one layer down. The cost is that a blank answer aborts the
@@ -90,7 +131,7 @@ test('ships a litellm provider preset that points at a proxy URL, no models', as
     [
       { name: 'baseURL', type: 'text', default: 'http://localhost:4000/v1' },
       { name: 'apiKey', type: 'secret', default: undefined },
-      { name: 'pricingURL', type: 'text', default: undefined },
+      { name: 'catalogURL', type: 'text', default: undefined },
     ],
   );
 
@@ -102,7 +143,7 @@ test('ships a litellm provider preset that points at a proxy URL, no models', as
     options: {
       baseURL: '{{prompt:baseURL}}',
       apiKey: '{{prompt:apiKey}}',
-      pricingURL: '{{prompt:pricingURL}}',
+      catalogURL: '{{prompt:catalogURL}}',
     },
   });
 });
@@ -166,7 +207,7 @@ test('records the pinned third-party version of every preset that installs one',
     'jdtls-lombok': [{ name: 'lombok', version: '1.18.46' }],
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.79' }],
     'plugin-dcg': [{ name: 'opencode-plugin-dcg', version: '0.2.0' }],
-    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.6.0' }],
+    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.7.0' }],
     'plugin-superpowers': [{ name: 'superpowers', version: '6.3.0' }],
   };
 

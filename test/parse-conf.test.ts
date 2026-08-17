@@ -100,11 +100,12 @@ describe('parseConfString — @include', () => {
   });
 
   // These would be dropped on the floor: a bundle never reaches an applier.
-  test('rejects a bundle that sets @fetch, @prompt or @pins', () => {
+  test('rejects a bundle that sets @fetch, @prompt, @pins or @requires-bin', () => {
     const cases: [string, RegExp][] = [
       ['// @fetch: https://x/y.jar -> {{cache}}/y.jar\n', /must not set @fetch/],
       ['// @prompt: url | text | where\n', /must not set @prompt/],
       ['// @pins: lombok 1.18.46\n', /must not set @pins/],
+      ['// @requires-bin: dcg\n', /must not set @requires-bin/],
     ];
     for (const [directive, re] of cases) {
       assert.throws(() => parseConfString(bundleHeader + directive + '// @include: a\n'), re);
@@ -253,6 +254,56 @@ describe('parseConfString — @prompt', () => {
   test('rejects more than 4 fields', () => {
     const src = minimalHeader + '// @prompt: a | text | b | c | d\n\n{}';
     assert.throws(() => parseConfString(src), /@prompt must be/);
+  });
+
+  test('parses the dir type', () => {
+    const src = minimalHeader + '// @prompt: clone | dir | where you cloned it\n\n{}';
+    const { meta } = parseConfString(src);
+    assert.deepEqual(meta.prompts[0], { name: 'clone', type: 'dir', help: 'where you cloned it' });
+  });
+
+  test('allows a default on dir', () => {
+    const src = minimalHeader + '// @prompt: clone | dir | where | /opt/x\n\n{}';
+    const { meta } = parseConfString(src);
+    assert.deepEqual(meta.prompts[0], { name: 'clone', type: 'dir', help: 'where', default: '/opt/x' });
+  });
+});
+
+describe('parseConfString — @requires-bin', () => {
+  test('parses a binary name', () => {
+    const src = minimalHeader + '// @requires-bin: dcg\n\n{}';
+    const { meta } = parseConfString(src);
+    assert.deepEqual(meta.requiresBin, ['dcg']);
+  });
+
+  test('is repeatable', () => {
+    const src = minimalHeader + '// @requires-bin: dcg\n// @requires-bin: jq\n\n{}';
+    const { meta } = parseConfString(src);
+    assert.deepEqual(meta.requiresBin, ['dcg', 'jq']);
+  });
+
+  test('defaults to empty', () => {
+    const { meta } = parseConfString(minimalHeader + '\n{}');
+    assert.deepEqual(meta.requiresBin, []);
+  });
+
+  // A path would make the check pass on the author's machine and fail on
+  // everyone else's; the whole point is a name resolved against PATH.
+  test('rejects a path rather than a name', () => {
+    for (const bad of ['/usr/local/bin/dcg', './dcg', 'bin/dcg']) {
+      assert.throws(
+        () => parseConfString(minimalHeader + `// @requires-bin: ${bad}\n\n{}`),
+        /must be an executable name on PATH/,
+        bad,
+      );
+    }
+  });
+
+  test('rejects an empty value', () => {
+    assert.throws(
+      () => parseConfString(minimalHeader + '// @requires-bin:\n\n{}'),
+      /needs an executable name/,
+    );
   });
 });
 

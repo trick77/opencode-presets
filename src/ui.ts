@@ -82,6 +82,11 @@ export function describe(
       out.push('  ' + c.bold('Pins  ') + c.meta(' : ') + p.name + c.meta(' @ ') + p.version);
     }
   }
+  if (action === 'install' && meta.requiresBin.length > 0) {
+    for (const bin of meta.requiresBin) {
+      out.push('  ' + c.bold('Needs ') + c.meta(' : ') + bin + c.meta(' on PATH'));
+    }
+  }
   if (action === 'install' && meta.fetch.length > 0) {
     for (const f of meta.fetch) {
       out.push('  ' + c.bold('Fetch ') + c.meta(' : ') + f.url);
