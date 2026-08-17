@@ -9,7 +9,7 @@ function meta(path: string): ConfMeta {
   return {
     name: 'm', description: '', author: '', version: '0.0.0',
     target: 'config', path, mode: 'merge',
-    fetch: [], prompts: [], pins: [], includes: [],
+    fetch: [], prompts: [], pins: [], requiresBin: [], includes: [],
   };
 }
 

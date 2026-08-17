@@ -57,15 +57,15 @@ something outside your opencode config say so in their description.
 | `mcp-litellm-passthrough` | MCP | replace | Add one `x-mcp-<alias>-<header>` passthrough header to the `mcp.litellm` server so an upstream MCP server authenticates as you (run once per header; install `mcp-litellm` first) |
 | `mcp-playwright` | MCP | replace | Add the Playwright MCP server (local stdio via npx; pins `@playwright/mcp` 0.0.79) |
 | `mcp-vscode` | MCP | replace | Add the VS Code MCP server via the `JuehangQin.vscode-mcp-server` extension (loopback HTTP, default port 3000) |
-| `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing from a LiteLLM-format price table instead of `$0`. The table URL has no default, so install `provider-litellm` too — without it the models are still discovered, just unpriced (pins `opencode-plugin-litellm-pricing` 0.6.0) |
-| `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing`, and name the price table it bills against — neither the plugin nor this preset has a default one (prompts for base URL, API key and price-table URL; no models list) |
+| `plugin-litellm-pricing` | Plugin | append | Add `opencode-plugin-litellm-pricing` — discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing from a LiteLLM-format model catalog instead of `$0`. The catalog URL has no default, so install `provider-litellm` too — without it the models are still discovered, just unpriced (pins `opencode-plugin-litellm-pricing` 0.7.0) |
+| `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing`, and name the model catalog it prices against — neither the plugin nor this preset has a default one (prompts for base URL, API key and catalog URL; no models list) |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.3.0`) |
-| `plugin-dcg` | Plugin | append | **Experimental** — the plugin is at 0.2.x and its behaviour can still change. Add `opencode-plugin-dcg`: runs every bash command past the external `dcg` binary and blocks the destructive ones. Install the binary yourself first: `brew install dicklesworthstone/tap/dcg`, or `curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh" \| bash -s -- --no-configure`. Without it the plugin warns once and commands run unchecked (pins `opencode-plugin-dcg` 0.2.0) |
+| `plugin-dcg` | Plugin | append | **Experimental** — the plugin is at 0.2.x and its behaviour can still change. Add `opencode-plugin-dcg`: runs every bash command past the external `dcg` binary and blocks the destructive ones. Install the binary yourself first: `brew install dicklesworthstone/tap/dcg`, or `curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh" \| bash -s -- --no-configure` — the install refuses while `dcg` is not on `PATH`, because without it the plugin warns once and every command runs unchecked (pins `opencode-plugin-dcg` 0.2.0) |
 | `privacy-share-disabled` | Privacy | replace | In the bundle. Sets `share` to "disabled" so opencode never publishes a session, automatically or on command |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
 | `instructions-swiss-rules` | Instructions | append | Answer in German with Swiss orthography (never the eszett character, always `ss`), German code comments with German domain nouns in identifiers, and plans written as self-contained HTML to `docs/plans/<TICKET>-<slug>.html` with `<TICKET>` taken from the current branch name (fetches `rules/de-swiss.md` from this repo, sha256-verified) |
-| `skill-diagram-design` | Skill | append | Registers the `diagram-design` skill (editorial diagram types as self-contained HTML + SVG) by appending your clone's `skills/` dir to `skills.paths`. Clone `cathrynlavery/diagram-design` yourself first; prompts for the absolute path. Tracks `main` — the repo ships no tags. One-way: `remove` cannot undo an append preset that prompts, so uninstall by deleting the one `skills.paths` entry by hand |
+| `skill-diagram-design` | Skill | append | Registers the `diagram-design` skill (editorial diagram types as self-contained HTML + SVG) by appending your clone's `skills/` dir to `skills.paths`. Clone it yourself first — `git clone https://github.com/cathrynlavery/diagram-design ~/src/diagram-design` — then answer with that clone's `skills/` dir (`--set skillsDir=/Users/you/src/diagram-design/skills`); the install refuses if the dir is not there. Tracks `main` — the repo ships no tags. One-way: `remove` cannot undo an append preset that prompts, so uninstall by deleting the one `skills.paths` entry by hand |
 | `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
 
 ### Bundles
@@ -179,27 +179,28 @@ opencode-presets reset mcp.openrag-tom
 
 ### Pricing a LiteLLM proxy
 
-`plugin-litellm-pricing` 0.6.0 dropped the built-in price-table URL: the plugin
-now fetches the table you name in `options.pricingURL` and nothing else. Name
-none and the models are still discovered and injected — they just carry no cost,
-and the startup log says so, naming the provider:
+`plugin-litellm-pricing` has no built-in catalog URL: it fetches the model
+catalog you name in `options.catalogURL` and nothing else. Name none and the
+models are still discovered and injected — they just carry no cost, and the
+startup log says so, naming the provider:
 
 ```
-[litellm-pricing] provider "litellm" has no options.pricingURL — set it to a
-  price table in LiteLLM `model_prices_and_context_window.json` format;
+[litellm-pricing] provider "litellm" has no options.catalogURL — set it to a
+  model catalog in LiteLLM `model_prices_and_context_window.json` format;
   every model will be injected without pricing.
 ```
 
 `provider-litellm` prompts for that URL and writes it. It offers no default
-either — a default here would put back the third-party host the plugin just
-stopped reaching for, one layer down — so a blank answer ends the install rather
-than writing someone else's URL into your config. Two answers are usual:
+either — a default here would put back the third-party host the plugin
+deliberately does not reach for, one layer down — so a blank answer ends the
+install rather than writing someone else's URL into your config. Two answers are
+usual:
 
 ```
 https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
 ```
 
-LiteLLM's published table, which covers the public model line. Or, if your
+LiteLLM's published catalog, which covers the public model line. Or, if your
 gateway serves an enriched copy — upstream's entries plus your own model names,
 with their real context and pricing — name that instead: those models then price
 by exact name rather than by substring against the public line. The URL is
@@ -208,22 +209,12 @@ repeated in the preset's description, so it is on screen when the prompt asks.
 Non-interactively, pass it in:
 
 ```sh
-opencode-presets install provider-litellm --set pricingURL=https://…/model_prices_and_context_window.json
+opencode-presets install provider-litellm --set catalogURL=https://…/model_prices_and_context_window.json
 ```
 
-**If you set this up before `provider-litellm` 0.4.0**, your config has no
-`pricingURL` at all — that release added the prompt. Until now it did not
-matter: plugin 0.4.1 priced from models.dev, and 0.5.0 fell back to LiteLLM's
-published file when the option was unset. 0.6.0 has neither. Nothing warns you
-at install time either, because `plugin-litellm-pricing` and `provider-litellm`
-are separate presets and bumping the first does not touch the second. Re-run it:
-
-```sh
-opencode-presets install provider-litellm
-```
-
-It is a `replace` preset, so it rewrites the whole `provider.litellm` block and
-re-prompts for the base URL and key as well — have the key to hand.
+`provider-litellm` is a `replace` preset, so re-running it rewrites the whole
+`provider.litellm` block and re-prompts for the base URL and key as well — have
+the key to hand.
 
 ### Checking commands with `dcg`
 
@@ -451,9 +442,26 @@ an absolute path.
 and `tui` presets; run separate commands for those.
 
 `@fetch: <url> -> <dest> [sha256=hex]` downloads to the cache.
-`@prompt: name | text|secret | help` collects input at install time.
+`@prompt: name | text|secret|dir | help` collects input at install time.
 Both repeatable. Reference fetched files as `{{cache}}/<name>` and
 prompt values as `{{prompt:<name>}}` in the body or `@path`.
+
+A `dir` prompt is checked before anything is written: the answer must be
+an absolute path (a leading `~` is expanded, since prompt input never
+sees a shell) to a directory that exists, or the install stops with an
+error and leaves your config alone. The resolved path is what gets
+written, so the entry means the same thing from any directory. `--set`
+values are checked exactly like typed ones.
+
+`@requires-bin: <name>` names an executable the preset needs on `PATH`.
+Repeatable. Missing at install time → the install refuses rather than
+writing a preset that cannot work; `remove` never checks, so you can
+always take one back out. It is a name resolved against `PATH`, not a
+path — the parser rejects `/usr/local/bin/foo`:
+
+```jsonc
+// @requires-bin: dcg
+```
 
 `@pins: <name> <version>` records a third-party artifact the preset
 installs at an exact version — the npm package behind an `mcp` command,

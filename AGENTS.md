@@ -28,8 +28,13 @@ Order irrelevant.
 - `@fetch: URL -> dest [sha256=hex]` — repeatable.
 - `@pins: name version` — repeatable, one per pinned third-party artifact.
   Version must also appear in body or `@fetch` (tested).
-- `@prompt: name | type | help | default` — repeatable; type `text`/`secret`.
+- `@prompt: name | type | help | default` — repeatable; type `text`/`secret`/`dir`.
   Help/default optional. Default forbidden for `secret`. Empty input → default.
+  `dir` → value must be an existing dir; `~` expanded, relative rejected, install
+  aborts if missing. Resolved absolute path is what gets written.
+- `@requires-bin: name` — repeatable. Executable that must be on PATH; missing →
+  install refuses, exit 1, nothing written. Name only, never a path. `remove`
+  skips the check. Use when the preset is inert without it.
 - `@include: <name|path>` — repeatable. Makes the module a **bundle**.
 
 ## Bundles (`@include`)

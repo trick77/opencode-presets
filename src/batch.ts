@@ -6,6 +6,7 @@ import type { ConfMeta, ConfTarget, FetchDirective } from './parse-conf.js';
 import { applyAtPath, removeAtPath, getAtPath } from './merge.js';
 import type { ApplyStats, RemoveStats, MergeMode } from './merge.js';
 import { fetchAsset } from './fetch-asset.js';
+import { checkDir, findOnPath } from './preconditions.js';
 import { backup } from './backup.js';
 import { c, confirm, promptText, promptSecret, describe, wrap } from './ui.js';
 import type { SetValue } from './cli-args.js';
@@ -149,7 +150,38 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
         console.error(c.err(`error: invalid identifier "${val}" — must match ${ID_RE.source}`));
         process.exit(1);
       }
+      // Outside the interactive branch on purpose: a --set value gets the same
+      // check a typed one does. A dead path written from a script is exactly
+      // as silent as a dead path written by hand.
+      if (p.type === 'dir') {
+        const check = await checkDir(val);
+        if (!check.ok) {
+          console.error(c.err(`error: prompt "${p.name}": ${check.reason}`));
+          process.exit(1);
+        }
+        // The resolved path is what lands in the config: ~ and .. expanded
+        // once here beats an entry only this shell could have resolved.
+        val = check.path;
+      }
       m.promptValues[p.name] = val;
+    }
+  }
+
+  // ── Check required binaries ──
+  //
+  // Before the fetches and before any write: a preset that cannot work is not
+  // worth downloading assets for, and refusing here leaves the config exactly
+  // as it was. Install only — `remove` must keep working after the binary is
+  // gone, which is precisely when you want the entry out of your config.
+  for (const m of modules) {
+    for (const bin of m.meta.requiresBin) {
+      if (await findOnPath(bin)) continue;
+      console.error(
+        c.err('error: ') +
+        `${m.meta.name} requires "${bin}" on PATH — install it first, then run this again.`
+      );
+      console.error(c.dim('  nothing was written.'));
+      process.exit(1);
     }
   }
 

@@ -7,7 +7,7 @@ export interface FetchDirective {
   sha256: string | null;
 }
 
-export type PromptType = 'text' | 'secret';
+export type PromptType = 'text' | 'secret' | 'dir';
 export type ConfTarget = 'config' | 'tui';
 
 export interface PromptDirective {
@@ -34,6 +34,11 @@ export interface ConfMeta {
   fetch: FetchDirective[];
   prompts: PromptDirective[];
   pins: PinDirective[];
+  // Executables this preset needs on PATH to be worth installing. Checked at
+  // install time and refused when missing: a preset whose binary is absent
+  // installs cleanly and then does nothing, which reads as protection you do
+  // not have. Names only, never paths.
+  requiresBin: string[];
   // Names or paths of other presets this one pulls in. A preset with any
   // @include is a bundle: a pure list, with no @path and no body of its own,
   // so it can never apply anything itself. See expand-includes.ts.
@@ -66,6 +71,7 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
     fetch: [],
     prompts: [],
     pins: [],
+    requiresBin: [],
     includes: [],
   };
 
@@ -78,7 +84,8 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
 
     const stripped = line.replace(/^\/\/\s?/, '');
 
-    const m = stripped.match(/^@(\w+):\s*(.*)$/);
+    // Hyphens allowed so multi-word keys read as one: @requires-bin.
+    const m = stripped.match(/^@([\w-]+):\s*(.*)$/);
     if (m) {
       const key = m[1];
       const value = m[2].trim();
@@ -112,6 +119,9 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
         case 'pins':
           meta.pins.push(parsePin(value, filePath));
           break;
+        case 'requires-bin':
+          meta.requiresBin.push(parseRequiresBin(value, filePath, i + 1));
+          break;
         case 'include':
           if (!value) throw parseError(filePath, i + 1, '@include needs a preset name or path');
           meta.includes.push(value);
@@ -143,6 +153,7 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
     // Rejecting them beats letting an author think they took effect.
     for (const [key, present] of [
       ['fetch', meta.fetch.length], ['prompt', meta.prompts.length], ['pins', meta.pins.length],
+      ['requires-bin', meta.requiresBin.length],
     ] as const) {
       if (present) {
         throw parseError(filePath, 1, `@include presets must not set @${key} — put it on the preset that uses it`);
@@ -192,13 +203,24 @@ function parsePrompt(value: string, filePath: string): PromptDirective {
   if (!/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(name)) {
     throw parseError(filePath, 0, `@prompt name must be alphanumeric/underscore/hyphen, got "${name}"`);
   }
-  if (type !== 'text' && type !== 'secret') {
-    throw parseError(filePath, 0, `@prompt type must be "text" or "secret", got "${type}"`);
+  if (type !== 'text' && type !== 'secret' && type !== 'dir') {
+    throw parseError(filePath, 0, `@prompt type must be "text", "secret", or "dir", got "${type}"`);
   }
   if (def !== undefined && type === 'secret') {
     throw parseError(filePath, 0, `@prompt default value is not allowed for type "secret" (got "${value}")`);
   }
   return def !== undefined ? { name, type, help, default: def } : { name, type, help };
+}
+
+function parseRequiresBin(value: string, filePath: string, line: number): string {
+  const bin = value.trim();
+  if (!bin) throw parseError(filePath, line, '@requires-bin needs an executable name');
+  // A name, resolved against PATH — not a path. Accepting "/opt/x/bin/dcg"
+  // here would make the check pass on one machine and fail on the next.
+  if (bin.includes('/') || bin.includes('\\') || /\s/.test(bin)) {
+    throw parseError(filePath, line, `@requires-bin must be an executable name on PATH, not a path, got "${bin}"`);
+  }
+  return bin;
 }
 
 function parsePin(value: string, filePath: string): PinDirective {
