@@ -79,3 +79,11 @@ Dateiname: `<TICKET>-<slug>.html`, zum Beispiel
 Die HTML-Datei ist eigenständig: `<!doctype html>`, `<html lang="de">`, CSS
 inline im `<style>`-Block, keine externen Ressourcen (keine CDN-Skripte, keine
 Web-Fonts, keine entfernten Bilder).
+
+Ein Diagramm nur, wenn es Struktur zeigt, die die Prosa nicht trägt:
+Abhängigkeiten, Datenfluss, Zustände, Reihenfolgen mit Verzweigungen. Eine
+lineare Schrittfolge wird aufgezählt, nicht gezeichnet.
+
+Das Diagramm liegt inline als `<svg>` in derselben Datei — keine Bilddatei
+daneben, keine externen Ressourcen. Ist der Skill `diagram-design` verfügbar,
+diesen dafür nutzen.
