@@ -64,15 +64,18 @@ something outside your opencode config say so in their description.
 | `privacy-share-disabled` | Privacy | replace | In the bundle. Sets `share` to "disabled" so opencode never publishes a session, automatically or on command |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
-| `instructions-swiss-rules` | Instructions | append | Answer in German with Swiss orthography (never the eszett character, always `ss`; umlauts as real characters, never `ae`/`oe`/`ue`), German code comments with German domain nouns in identifiers, and plans written as self-contained HTML (inline `<svg>` diagrams only where they show structure the prose cannot carry) to `docs/plans/<TICKET>-<slug>.html` with `<TICKET>` taken from the current branch name (fetches `rules/de-swiss.md` from this repo, sha256-verified) |
+| `planify` | Bundle | — | The whole planify setup: `plugin-planify`, `instructions-planify`, `skill-planify`. Install all three or nothing happens — the rules name a tool that would not exist, the plugin would never be called |
+| `plugin-planify` | Plugin | append | Add the `planify` plugin from `trick77/planify`, which registers the `plan_render` tool: takes a plan as JSON, validates it against a schema, renders a self-contained HTML file to `docs/plans/<TICKET>-<slug>.html` and opens it in the system's default browser (pins tag `v0.1.0`) |
+| `instructions-planify` | Instructions | append | Answer in German with Swiss orthography (never the eszett character, always `ss`; umlauts as real characters, never `ae`/`oe`/`ue`), German code comments with German domain nouns in identifiers, and every plan built as JSON and handed to `plan_render` instead of hand-written HTML or Markdown, with `<TICKET>` taken from the current branch name (fetches the rules file from `trick77/planify`, sha256-verified). Replaces the former `instructions-swiss-rules`; needs `plugin-planify` |
+| `skill-planify` | Skill | append | Registers the `planify` skill — the plan JSON schema field by field, the writing rules per field, when a plan gets a diagram, and a complete example. Fetches the skill files from `trick77/planify` into the cache, sha256-verified, and appends that dir to `skills.paths`; no clone needed. Uninstall by deleting the one `skills.paths` entry by hand |
 | `skill-diagram-design` | Skill | append | Registers the `diagram-design` skill (editorial diagram types as self-contained HTML + SVG) by appending your clone's `skills/` dir to `skills.paths`. Clone it yourself first — `git clone https://github.com/cathrynlavery/diagram-design ~/src/diagram-design` — then answer with that clone's `skills/` dir (`--set skillsDir=/Users/you/src/diagram-design/skills`); the install refuses if the dir is not there. Tracks `main` — the repo ships no tags. One-way: `remove` cannot undo an append preset that prompts, so uninstall by deleting the one `skills.paths` entry by hand |
 | `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
 
 ### Bundles
 
 A preset whose header is `@include` lines is a **bundle**: a list of other
-presets, with no rules of its own. `permissions-recommended` is the only one
-shipped, and this is all of it:
+presets, with no rules of its own. Two ship: `planify`, and
+`permissions-recommended`, which is all of this:
 
 ```
 permissions-recommended
