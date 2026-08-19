@@ -238,11 +238,19 @@ test('every @fetch destination is actually referenced by the preset it feeds', a
     const { meta, body } = await parseConf(file);
     const haystack = JSON.stringify(body) + meta.path;
 
+    // A preset may reference the directory it fetches into rather than each
+    // file: skills.paths takes a skill folder, not the SKILL.md inside it. Such
+    // a dest counts as referenced when a referenced path is a parent of it —
+    // still no orphan fetches, and a typo in either half still fails.
+    const referenced = [...JSON.stringify(body).matchAll(/"([^"]+)"/g)].map(m => m[1]).concat(meta.path);
+
     for (const f of meta.fetch) {
+      const inReferencedDir = referenced.some(r => r.length > 0 && f.dest.startsWith(`${r}/`));
       assert.ok(
-        haystack.includes(f.dest),
+        haystack.includes(f.dest) || inReferencedDir,
         `${meta.name}: @fetch writes ${f.dest}, but nothing in the body or @path ` +
-        'points at it — the fetch was bumped without the reference that uses it',
+        'points at it or at a directory containing it — the fetch was bumped ' +
+        'without the reference that uses it',
       );
     }
   }

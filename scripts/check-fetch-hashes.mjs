@@ -2,8 +2,8 @@
 // Report shipped @fetch lines whose sha256 no longer matches the file they
 // point at in this repo.
 //
-// Some presets fetch a first-party file — rules/de-swiss.md is the first —
-// from raw.githubusercontent.com, pinned to a commit and a sha256. Editing
+// A preset may fetch a first-party file — one living in this repo, say under
+// rules/ — from raw.githubusercontent.com, pinned to a commit and a sha256. Editing
 // that file in the working tree does not touch the preset, so the preset goes
 // on serving the old bytes from the old commit. Nothing in `npm test` notices:
 // the suite only checks that an @fetch dest is referenced by the body, never
