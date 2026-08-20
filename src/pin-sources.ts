@@ -16,9 +16,7 @@ export const PIN_SOURCES: Record<string, PinSource> = {
   'opencode-plugin-dcg': { kind: 'npm', pkg: 'opencode-plugin-dcg' },
   'opencode-plugin-litellm-pricing': { kind: 'npm', pkg: 'opencode-plugin-litellm-pricing' },
   'superpowers': { kind: 'github-release', repo: 'obra/superpowers' },
-  // Tags, not releases: the repo tags every version and publishes no GitHub
-  // release, so the release endpoint would report nothing at all.
-  'opencode-planify-german': { kind: 'github-tags', repo: 'trick77/opencode-planify-german' },
+  'opencode-planify-german': { kind: 'npm', pkg: 'opencode-planify-german' },
   // Tags, not the two obvious sources, both of which are wrong for lombok:
   // Maven Central's search index reported 1.18.38 as latest while 1.18.46 was
   // downloadable, and projectlombok.org/all-versions only linked jars up to
