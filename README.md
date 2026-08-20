@@ -445,9 +445,12 @@ an absolute path.
 and `tui` presets; run separate commands for those.
 
 `@fetch: <url> -> <dest> [sha256=hex]` downloads to the cache.
-`@prompt: name | text|secret|dir | help` collects input at install time.
-Both repeatable. Reference fetched files as `{{cache}}/<name>` and
-prompt values as `{{prompt:<name>}}` in the body or `@path`.
+`@prompt: name | text|secret|dir | help | default | setup` collects input
+at install time; everything after the type is optional. Both repeatable.
+Reference fetched files as `{{cache}}/<name>` and prompt values as
+`{{prompt:<name>}}` in the body or `@path`. Leave the default field empty
+to skip it — `name | dir | help | | <setup>` has a setup hint and no
+default.
 
 A `dir` prompt is checked before anything is written: the answer must be
 an absolute path (a leading `~` is expanded, since prompt input never
@@ -456,14 +459,32 @@ error and leaves your config alone. The resolved path is what gets
 written, so the entry means the same thing from any directory. `--set`
 values are checked exactly like typed ones.
 
-`@requires-bin: <name>` names an executable the preset needs on `PATH`.
-Repeatable. Missing at install time → the install refuses rather than
-writing a preset that cannot work; `remove` never checks, so you can
-always take one back out. It is a name resolved against `PATH`, not a
-path — the parser rejects `/usr/local/bin/foo`:
+The `setup` field is what to do to make that directory exist. It is shown
+in the install summary, before you are asked anything, and again if the
+answer fails its check:
+
+```
+error: prompt "skillsDir": /tmp/dd does not exist
+  clone it first: git clone https://github.com/cathrynlavery/diagram-design, then answer with the skills/ dir inside that clone
+  nothing was written.
+```
+
+`@requires-bin: <name> | <setup>` names an executable the preset needs on
+`PATH`, and the command that installs it. Repeatable. The check runs
+before the install summary, so a missing binary refuses without ever
+asking you to confirm; `remove` never checks, so you can always take one
+back out. It is a name resolved against `PATH`, not a path — the parser
+rejects `/usr/local/bin/foo`. The setup half is optional but omitting it
+means the refusal cannot tell you what to run:
 
 ```jsonc
-// @requires-bin: dcg
+// @requires-bin: dcg | brew install dicklesworthstone/tap/dcg
+```
+
+```
+error: plugin-dcg requires "dcg" on PATH.
+  brew install dicklesworthstone/tap/dcg
+  then run this again — nothing was written.
 ```
 
 `@pins: <name> <version>` records a third-party artifact the preset

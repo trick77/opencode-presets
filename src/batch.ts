@@ -6,7 +6,7 @@ import type { ConfMeta, ConfTarget, FetchDirective } from './parse-conf.js';
 import { applyAtPath, removeAtPath, getAtPath } from './merge.js';
 import type { ApplyStats, RemoveStats, MergeMode } from './merge.js';
 import { fetchAsset } from './fetch-asset.js';
-import { checkDir, findOnPath } from './preconditions.js';
+import { checkDir, findOnPath, formatSetup } from './preconditions.js';
 import { backup } from './backup.js';
 import { c, confirm, promptText, promptSecret, describe, wrap } from './ui.js';
 import type { SetValue } from './cli-args.js';
@@ -92,6 +92,35 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
     process.exit(1);
   }
 
+  // ── Check required binaries ──
+  //
+  // Before the summary, so nobody confirms an install that cannot survive its
+  // own preconditions: the summary prints "needs dcg on PATH ✓" and getting
+  // that far now means it was verified, not merely declared. Install only —
+  // `remove` must keep working after the binary is gone, which is precisely
+  // when you want the entry out of your config.
+  for (const m of modules) {
+    for (const req of m.meta.requiresBin) {
+      if (await findOnPath(req.bin)) continue;
+      const setup = formatSetup(req.setup);
+      // Without a hint there is nothing to run before running this again, so
+      // saying "then run this again" would be an instruction to nowhere. Every
+      // shipped preset carries one; a third-party preset need not.
+      if (setup.length === 0) {
+        console.error(
+          c.err('error: ') +
+          `${m.meta.name} requires "${req.bin}" on PATH — install it first, then run this again.`
+        );
+        console.error(c.dim('  nothing was written.'));
+        process.exit(1);
+      }
+      console.error(c.err('error: ') + `${m.meta.name} requires "${req.bin}" on PATH.`);
+      for (const line of setup) console.error(line);
+      console.error(c.dim('  then run this again — nothing was written.'));
+      process.exit(1);
+    }
+  }
+
   const targetName = resolveBatchTarget(modules, resets);
   const targets = opts.targets ?? { config: opts.target!, tui: opts.target! };
   const schemas = opts.schemas ?? { config: SCHEMA_URL, tui: TUI_SCHEMA_URL };
@@ -157,6 +186,8 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
         const check = await checkDir(val);
         if (!check.ok) {
           console.error(c.err(`error: prompt "${p.name}": ${check.reason}`));
+          for (const line of formatSetup(p.setup)) console.error(line);
+          console.error(c.dim('  nothing was written.'));
           process.exit(1);
         }
         // The resolved path is what lands in the config: ~ and .. expanded
@@ -164,24 +195,6 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
         val = check.path;
       }
       m.promptValues[p.name] = val;
-    }
-  }
-
-  // ── Check required binaries ──
-  //
-  // Before the fetches and before any write: a preset that cannot work is not
-  // worth downloading assets for, and refusing here leaves the config exactly
-  // as it was. Install only — `remove` must keep working after the binary is
-  // gone, which is precisely when you want the entry out of your config.
-  for (const m of modules) {
-    for (const bin of m.meta.requiresBin) {
-      if (await findOnPath(bin)) continue;
-      console.error(
-        c.err('error: ') +
-        `${m.meta.name} requires "${bin}" on PATH — install it first, then run this again.`
-      );
-      console.error(c.dim('  nothing was written.'));
-      process.exit(1);
     }
   }
 
@@ -403,6 +416,18 @@ function renderSummary(
       lines.push('    • ' + c.bold(m.meta.name) + c.meta(` v${m.meta.version}`) +
         c.dim(` → ${m.meta.path}`) + ' ' + colorMode(m.meta.mode));
       lines.push(wrap(m.meta.description, 72, '        '));
+      // The binary check already ran, so a summary that renders at all renders
+      // with every requirement satisfied: the tick is a verified fact, not the
+      // header's claim repeated back.
+      for (const req of m.meta.requiresBin) {
+        lines.push('        ' + c.dim('needs ' + req.bin + ' on PATH ') + c.ok('✓'));
+      }
+      // A `dir` prompt is the one input that can still refuse this install.
+      // Its hint belongs here, before the confirm — making the directory exist
+      // is easier now than while sitting at a prompt waiting to type its path.
+      for (const p of m.meta.prompts) {
+        if (p.setup) lines.push(wrap('will ask for ' + p.name + ' — ' + p.setup, 72, '        '));
+      }
     }
     for (const line of agentOverrideWarnings(modules, existing)) lines.push(line);
 
@@ -515,7 +540,7 @@ export async function runRemoveBatch(opts: RunRemoveBatchOpts): Promise<void> {
   console.log('');
   for (const m of modules) {
     const cur = getAtPath(existing, m.meta.path);
-    console.log(describe(m.meta, target, cur, m.expandedBody, 'remove'));
+    console.log(describe(m.meta, target, cur, m.expandedBody));
     console.log('');
   }
 

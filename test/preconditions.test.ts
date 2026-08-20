@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, chmod } from 'node:fs/promises';
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 
-import { checkDir, findOnPath } from '../src/preconditions.js';
+import { checkDir, findOnPath, formatSetup } from '../src/preconditions.js';
 
 describe('checkDir', () => {
   test('accepts an existing absolute directory and returns it resolved', async () => {
@@ -98,5 +98,26 @@ describe('findOnPath', () => {
   test('survives an empty or unset PATH', async () => {
     assert.equal(await findOnPath('fakedcg', { PATH: '' }), null);
     assert.equal(await findOnPath('fakedcg', {}), null);
+  });
+});
+
+describe('formatSetup', () => {
+  test('indents a single-line hint', () => {
+    assert.deepEqual(formatSetup('brew install x'), ['  brew install x']);
+  });
+
+  test('keeps a multi-step hint as separate lines', () => {
+    assert.deepEqual(formatSetup('git clone https://x/y\ncd y && make'), [
+      '  git clone https://x/y',
+      '  cd y && make',
+    ]);
+  });
+
+  // No hint must produce no lines at all, not a stray indented blank: the
+  // caller prints these straight under its error.
+  test('produces nothing without a hint', () => {
+    assert.deepEqual(formatSetup(undefined), []);
+    assert.deepEqual(formatSetup(''), []);
+    assert.deepEqual(formatSetup('   \n  \n'), []);
   });
 });
