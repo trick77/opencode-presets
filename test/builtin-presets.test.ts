@@ -50,7 +50,7 @@ test('ships a litellm plugin preset that appends the runtime-discovery plugin', 
   assert.equal(meta.name, 'plugin-litellm-pricing');
   assert.equal(meta.path, 'plugin');
   assert.equal(meta.mode, 'append');
-  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@0.8.0']);
+  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@0.8.1']);
 });
 
 test('ships a dcg plugin preset that appends the destructive-command guard plugin', async () => {
@@ -229,7 +229,7 @@ test('records the pinned third-party version of every preset that installs one',
     'jdtls-lombok': [{ name: 'lombok', version: '1.18.46' }],
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.79' }],
     'plugin-dcg': [{ name: 'opencode-plugin-dcg', version: '0.2.0' }],
-    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.8.0' }],
+    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.8.1' }],
     'plugin-superpowers': [{ name: 'superpowers', version: '6.3.0' }],
   };
 
