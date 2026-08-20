@@ -268,6 +268,16 @@ describe('parseConfString — @prompt', () => {
     assert.equal(meta.prompts[0].default, undefined);
   });
 
+  // The hint is printed for the user to paste after a refusal, so it has to
+  // survive byte for byte. Normalising the spacing around a pipe inside quotes
+  // changes the pattern and hands them a command that does something else.
+  test('a setup hint keeps its own spacing around those pipes', () => {
+    const src = minimalHeader +
+      "// @prompt: c | dir | where | | git log --grep 'fix|feat' && curl u|sh\n\n{}";
+    const { meta } = parseConfString(src);
+    assert.equal(meta.prompts[0].setup, "git log --grep 'fix|feat' && curl u|sh");
+  });
+
   test('parses a setup hint as the fifth field', () => {
     const src = minimalHeader + '// @prompt: clone | dir | where | /opt/x | git clone https://example.com/r\n\n{}';
     const { meta } = parseConfString(src);
