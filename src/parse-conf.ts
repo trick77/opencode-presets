@@ -208,8 +208,13 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
 }
 
 function parsePrompt(value: string, filePath: string): PromptDirective {
-  const parts = value.split('|').map(s => s.trim());
-  if (parts.length < 2 || parts.length > 5) {
+  // Only the first four separators are structural. Everything after them is
+  // the setup hint, which is a shell command and may well contain pipes —
+  // `curl -fsSL https://…/install.sh | bash` is how one of these tools is
+  // installed. Same rule as @requires-bin, which splits at its first `|` only.
+  const split = value.split('|').map(s => s.trim());
+  const parts = split.length > 5 ? [...split.slice(0, 4), split.slice(4).join(' | ')] : split;
+  if (parts.length < 2) {
     throw parseError(filePath, 0, `@prompt must be "name | type | help | default | setup" (help, default and setup optional), got "${value}"`);
   }
   const [name, type, help = '', rawDef, setup] = parts;

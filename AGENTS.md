@@ -34,7 +34,8 @@ Order irrelevant.
   `dir` → value must be an existing dir; `~` expanded, relative rejected, install
   aborts if missing. Resolved absolute path is what gets written.
   `setup` = command that makes the dir exist. Mandatory on every `dir` prompt
-  (tested). Shown in the summary and on failure.
+  (tested). Shown in the summary and on failure. Only the first four `|` split
+  fields — a hint may contain pipes.
 - `@requires-bin: name | setup` — repeatable. Executable that must be on PATH;
   missing → install refuses, exit 1, nothing written. Name only, never a path.
   Checked **before** the summary/confirm, so nobody confirms a dead install;

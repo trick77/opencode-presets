@@ -251,9 +251,21 @@ describe('parseConfString — @prompt', () => {
     assert.throws(() => parseConfString(src), /not allowed for type "secret"/);
   });
 
-  test('rejects more than 5 fields', () => {
-    const src = minimalHeader + '// @prompt: a | text | b | c | d | e\n\n{}';
+  test('rejects a single field', () => {
+    const src = minimalHeader + '// @prompt: a\n\n{}';
     assert.throws(() => parseConfString(src), /@prompt must be/);
+  });
+
+  // The hint is a shell command; README's own dcg entry documents a
+  // curl-pipe installer. Splitting it into fields would reject it with a
+  // field-count error that never names the real cause.
+  test('a setup hint keeps its own pipes', () => {
+    const src = minimalHeader +
+      '// @prompt: clone | dir | where | | curl -fsSL https://x/i.sh | bash -s -- --no-configure\n\n{}';
+    const { meta } = parseConfString(src);
+    assert.equal(meta.prompts[0].setup, 'curl -fsSL https://x/i.sh | bash -s -- --no-configure');
+    assert.equal(meta.prompts[0].help, 'where');
+    assert.equal(meta.prompts[0].default, undefined);
   });
 
   test('parses a setup hint as the fifth field', () => {

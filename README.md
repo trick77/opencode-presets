@@ -450,7 +450,8 @@ at install time; everything after the type is optional. Both repeatable.
 Reference fetched files as `{{cache}}/<name>` and prompt values as
 `{{prompt:<name>}}` in the body or `@path`. Leave the default field empty
 to skip it — `name | dir | help | | <setup>` has a setup hint and no
-default.
+default. Only the first four `|` are structural, so a setup hint may
+contain pipes of its own.
 
 A `dir` prompt is checked before anything is written: the answer must be
 an absolute path (a leading `~` is expanded, since prompt input never
