@@ -15,6 +15,19 @@ export interface PromptDirective {
   type: PromptType;
   help: string;
   default?: string;
+  // What to do when the answer fails its check — the literal command that makes
+  // it pass, e.g. the git clone that creates the directory being asked for.
+  // Only a `dir` prompt can fail a check, so only there does this earn its keep.
+  setup?: string;
+}
+
+// An executable this preset needs on PATH, plus how to get it.
+export interface RequiresBinDirective {
+  bin: string;
+  // The command that installs it. Printed verbatim when the check fails —
+  // "install it first" without the command sends the user hunting for a
+  // description that this error already replaced on screen.
+  setup?: string;
 }
 
 // A third-party artifact this preset installs at an exact version.
@@ -38,7 +51,7 @@ export interface ConfMeta {
   // install time and refused when missing: a preset whose binary is absent
   // installs cleanly and then does nothing, which reads as protection you do
   // not have. Names only, never paths.
-  requiresBin: string[];
+  requiresBin: RequiresBinDirective[];
   // Names or paths of other presets this one pulls in. A preset with any
   // @include is a bundle: a pure list, with no @path and no body of its own,
   // so it can never apply anything itself. See expand-includes.ts.
@@ -195,11 +208,21 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
 }
 
 function parsePrompt(value: string, filePath: string): PromptDirective {
-  const parts = value.split('|').map(s => s.trim());
-  if (parts.length < 2 || parts.length > 4) {
-    throw parseError(filePath, 0, `@prompt must be "name | type | help | default" (help and default optional), got "${value}"`);
+  // Only the first four separators are structural. Everything after them is
+  // the setup hint, which is a shell command and may well contain pipes —
+  // `curl -fsSL https://…/install.sh | bash` is how one of these tools is
+  // installed. Same rule as @requires-bin, which splits at its first `|` only.
+  const split = value.split('|').map(s => s.trim());
+  const parts = split.length > 5 ? [...split.slice(0, 4), split.slice(4).join(' | ')] : split;
+  if (parts.length < 2) {
+    throw parseError(filePath, 0, `@prompt must be "name | type | help | default | setup" (help, default and setup optional), got "${value}"`);
   }
-  const [name, type, help = '', def] = parts;
+  const [name, type, help = '', rawDef, setup] = parts;
+  // An empty default field means "no default", not "default to the empty
+  // string": an empty answer with an empty default fails the same emptiness
+  // check anyway, and the field has to stay skippable so a prompt with no
+  // default can still carry a setup hint after it.
+  const def = rawDef ? rawDef : undefined;
   if (!/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(name)) {
     throw parseError(filePath, 0, `@prompt name must be alphanumeric/underscore/hyphen, got "${name}"`);
   }
@@ -209,18 +232,25 @@ function parsePrompt(value: string, filePath: string): PromptDirective {
   if (def !== undefined && type === 'secret') {
     throw parseError(filePath, 0, `@prompt default value is not allowed for type "secret" (got "${value}")`);
   }
-  return def !== undefined ? { name, type, help, default: def } : { name, type, help };
+  const p: PromptDirective = { name, type, help };
+  if (def !== undefined) p.default = def;
+  if (setup) p.setup = setup;
+  return p;
 }
 
-function parseRequiresBin(value: string, filePath: string, line: number): string {
-  const bin = value.trim();
+function parseRequiresBin(value: string, filePath: string, line: number): RequiresBinDirective {
+  // First `|` only: the install command on the right is free-form and may well
+  // contain a pipe of its own.
+  const sep = value.indexOf('|');
+  const bin = (sep === -1 ? value : value.slice(0, sep)).trim();
+  const setup = sep === -1 ? '' : value.slice(sep + 1).trim();
   if (!bin) throw parseError(filePath, line, '@requires-bin needs an executable name');
   // A name, resolved against PATH — not a path. Accepting "/opt/x/bin/dcg"
   // here would make the check pass on one machine and fail on the next.
   if (bin.includes('/') || bin.includes('\\') || /\s/.test(bin)) {
     throw parseError(filePath, line, `@requires-bin must be an executable name on PATH, not a path, got "${bin}"`);
   }
-  return bin;
+  return setup ? { bin, setup } : { bin };
 }
 
 function parsePin(value: string, filePath: string): PinDirective {

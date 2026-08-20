@@ -75,3 +75,16 @@ export async function findOnPath(
   }
   return null;
 }
+
+// Render a `@requires-bin` / `@prompt` setup hint as the lines that follow a
+// refusal. Indented two spaces so it reads as belonging to the error above it,
+// and split on newlines so a multi-step hint stays a list instead of one long
+// wrapped line. No hint → no lines, and the caller prints its bare error.
+export function formatSetup(setup?: string): string[] {
+  if (!setup) return [];
+  return setup
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.length > 0)
+    .map(l => '  ' + l);
+}

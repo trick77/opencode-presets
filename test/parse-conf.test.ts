@@ -251,9 +251,56 @@ describe('parseConfString — @prompt', () => {
     assert.throws(() => parseConfString(src), /not allowed for type "secret"/);
   });
 
-  test('rejects more than 4 fields', () => {
-    const src = minimalHeader + '// @prompt: a | text | b | c | d\n\n{}';
+  test('rejects a single field', () => {
+    const src = minimalHeader + '// @prompt: a\n\n{}';
     assert.throws(() => parseConfString(src), /@prompt must be/);
+  });
+
+  // The hint is a shell command; README's own dcg entry documents a
+  // curl-pipe installer. Splitting it into fields would reject it with a
+  // field-count error that never names the real cause.
+  test('a setup hint keeps its own pipes', () => {
+    const src = minimalHeader +
+      '// @prompt: clone | dir | where | | curl -fsSL https://x/i.sh | bash -s -- --no-configure\n\n{}';
+    const { meta } = parseConfString(src);
+    assert.equal(meta.prompts[0].setup, 'curl -fsSL https://x/i.sh | bash -s -- --no-configure');
+    assert.equal(meta.prompts[0].help, 'where');
+    assert.equal(meta.prompts[0].default, undefined);
+  });
+
+  test('parses a setup hint as the fifth field', () => {
+    const src = minimalHeader + '// @prompt: clone | dir | where | /opt/x | git clone https://example.com/r\n\n{}';
+    const { meta } = parseConfString(src);
+    assert.deepEqual(meta.prompts[0], {
+      name: 'clone', type: 'dir', help: 'where',
+      default: '/opt/x', setup: 'git clone https://example.com/r',
+    });
+  });
+
+  // The common shape: something to clone, and no sensible default to clone it
+  // to. The default field has to be skippable or the hint cannot be reached.
+  test('an empty default field means no default, not an empty one', () => {
+    const src = minimalHeader + '// @prompt: clone | dir | where | | git clone https://example.com/r\n\n{}';
+    const { meta } = parseConfString(src);
+    assert.equal(meta.prompts[0].default, undefined);
+    assert.equal(meta.prompts[0].setup, 'git clone https://example.com/r');
+  });
+
+  test('a real default on secret is still rejected with a setup hint after it', () => {
+    const src = minimalHeader + '// @prompt: token | secret | bearer | hunter2 | go get one\n\n{}';
+    assert.throws(() => parseConfString(src), /not allowed for type "secret"/);
+  });
+
+  test('an empty default field on secret is not a default, so it passes', () => {
+    const src = minimalHeader + '// @prompt: token | secret | bearer | | go get one\n\n{}';
+    const { meta } = parseConfString(src);
+    assert.equal(meta.prompts[0].default, undefined);
+  });
+
+  test('no setup hint leaves the field unset', () => {
+    const src = minimalHeader + '// @prompt: clone | dir | where\n\n{}';
+    const { meta } = parseConfString(src);
+    assert.equal(meta.prompts[0].setup, undefined);
   });
 
   test('parses the dir type', () => {
@@ -273,13 +320,13 @@ describe('parseConfString — @requires-bin', () => {
   test('parses a binary name', () => {
     const src = minimalHeader + '// @requires-bin: dcg\n\n{}';
     const { meta } = parseConfString(src);
-    assert.deepEqual(meta.requiresBin, ['dcg']);
+    assert.deepEqual(meta.requiresBin, [{ bin: 'dcg' }]);
   });
 
   test('is repeatable', () => {
     const src = minimalHeader + '// @requires-bin: dcg\n// @requires-bin: jq\n\n{}';
     const { meta } = parseConfString(src);
-    assert.deepEqual(meta.requiresBin, ['dcg', 'jq']);
+    assert.deepEqual(meta.requiresBin, [{ bin: 'dcg' }, { bin: 'jq' }]);
   });
 
   test('defaults to empty', () => {

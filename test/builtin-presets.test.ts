@@ -67,7 +67,9 @@ test('ships a dcg plugin preset that appends the destructive-command guard plugi
   // once and every command runs unchecked — a guard sitting in the config that
   // is not guarding, which is worse than no plugin at all. The preset declares
   // the dependency so install refuses instead of writing that state.
-  assert.deepEqual(meta.requiresBin, ['dcg']);
+  assert.deepEqual(meta.requiresBin, [
+    { bin: 'dcg', setup: 'brew install dicklesworthstone/tap/dcg' },
+  ]);
 });
 
 test('only the presets that drive an external binary declare @requires-bin', async () => {
@@ -79,7 +81,27 @@ test('only the presets that drive an external binary declare @requires-bin', asy
 
   for (const file of await shippedPresets()) {
     const { meta } = await parseConf(file);
-    assert.deepEqual(meta.requiresBin, expected[meta.name] ?? [], `${meta.name} requiresBin`);
+    assert.deepEqual(
+      meta.requiresBin.map(r => r.bin),
+      expected[meta.name] ?? [],
+      `${meta.name} requiresBin`
+    );
+  }
+});
+
+// Every refusable precondition must say how to satisfy it. Refusing an install
+// and then leaving the user to hunt for the command in a description is the
+// failure this whole mechanism exists to remove, so it is a test, not a habit.
+test('every precondition that can refuse an install carries a setup hint', async () => {
+  for (const file of await shippedPresets()) {
+    const { meta } = await parseConf(file);
+    for (const req of meta.requiresBin) {
+      assert.ok(req.setup, `${meta.name}: @requires-bin ${req.bin} needs a setup hint`);
+    }
+    // Only `dir` prompts get checked, so only they can refuse an install.
+    for (const p of meta.prompts.filter(p => p.type === 'dir')) {
+      assert.ok(p.setup, `${meta.name}: dir prompt "${p.name}" needs a setup hint`);
+    }
   }
 });
 

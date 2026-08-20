@@ -14,8 +14,6 @@ export const c = {
   bold: chalk.bold,
 };
 
-export type UiAction = 'install' | 'remove';
-
 interface Waiter {
   resolve: (line: string) => void;
   reject: (e: Error) => void;
@@ -61,49 +59,30 @@ export function header(meta: ConfMeta): string {
   ].join('  ');
 }
 
+// The per-preset block printed before a `remove` confirm. Installs are
+// rendered by renderSummary in batch.ts, which is cumulative across a batch
+// and can state verified preconditions; this one describes a single preset
+// being taken back out.
 export function describe(
   meta: ConfMeta,
   target: string,
   currentValue: unknown,
-  body: unknown,
-  action: UiAction = 'install'
+  body: unknown
 ): string {
   const out: string[] = [];
   out.push(header(meta));
   out.push('');
   out.push(wrap(meta.description, 72, '  '));
   out.push('');
-  out.push('  ' + c.bold('Action') + c.meta(' : ') + (action === 'install' ? c.ok('install') : c.warn('remove')));
+  out.push('  ' + c.bold('Action') + c.meta(' : ') + c.warn('remove'));
   out.push('  ' + c.bold('Target') + c.meta(' : ') + target);
   out.push('  ' + c.bold('Path  ') + c.meta(' : ') + meta.path);
   out.push('  ' + c.bold('Mode  ') + c.meta(' : ') + meta.mode);
-  if (action === 'install' && meta.pins.length > 0) {
-    for (const p of meta.pins) {
-      out.push('  ' + c.bold('Pins  ') + c.meta(' : ') + p.name + c.meta(' @ ') + p.version);
-    }
-  }
-  if (action === 'install' && meta.requiresBin.length > 0) {
-    for (const bin of meta.requiresBin) {
-      out.push('  ' + c.bold('Needs ') + c.meta(' : ') + bin + c.meta(' on PATH'));
-    }
-  }
-  if (action === 'install' && meta.fetch.length > 0) {
-    for (const f of meta.fetch) {
-      out.push('  ' + c.bold('Fetch ') + c.meta(' : ') + f.url);
-      out.push('  ' + c.meta('         → ') + f.dest);
-    }
-  }
-  if (action === 'install' && meta.prompts.length > 0) {
-    for (const p of meta.prompts) {
-      out.push('  ' + c.bold('Prompt') + c.meta(' : ') + p.name +
-        c.meta(' (' + p.type + ')') + (p.help ? c.meta(' — ' + p.help) : ''));
-    }
-  }
   out.push('');
   out.push('  ' + c.bold('Change'));
-  out.push(indent(diffBlock(currentValue, body, meta, action), '    '));
+  out.push(indent(removeDiff(currentValue, body, meta), '    '));
 
-  if (action === 'remove' && (meta.mode === 'merge' || meta.mode === 'merge-overwrite')) {
+  if (meta.mode === 'merge' || meta.mode === 'merge-overwrite') {
     out.push('');
     out.push('  ' + c.warn('⚠  Remove in merge mode deletes any key whose current value still'));
     out.push('  ' + c.warn('   matches what this module would write. If a key happened to be set'));
@@ -114,60 +93,6 @@ export function describe(
   }
 
   return out.join('\n');
-}
-
-function diffBlock(current: unknown, incoming: unknown, meta: ConfMeta, action: UiAction): string {
-  if (action === 'remove') return removeDiff(current, incoming, meta);
-  return installDiff(current, incoming, meta);
-}
-
-function installDiff(current: unknown, incoming: unknown, meta: ConfMeta): string {
-  if (current === undefined) {
-    if (meta.mode === 'replace') {
-      return c.dim('(no existing value — will create)') + '\n' +
-             c.ok('+ ') + truncJson(incoming);
-    }
-    if (meta.mode === 'append') {
-      const entries = Array.isArray(incoming) ? incoming.length : 0;
-      const lines = [c.dim(`(no existing value — will create with ${entries} entr${entries === 1 ? 'y' : 'ies'})`)];
-      if (Array.isArray(incoming) && incoming.length > 0) lines.push(c.ok('+ ') + sampleValues(incoming, 5));
-      return lines.join('\n');
-    }
-    const keys = Object.keys(incoming as object);
-    return c.dim(`(no existing value — will create with ${keys.length} key${keys.length === 1 ? '' : 's'})`);
-  }
-  if (meta.mode === 'replace') {
-    if (deepEqual(current, incoming)) return c.dim('(no change — value already matches)');
-    return c.warn('- ') + truncJson(current) + '\n' + c.ok('+ ') + truncJson(incoming);
-  }
-  if (meta.mode === 'append') {
-    if (!Array.isArray(current)) {
-      return c.err('! cannot append: existing value at path is not an array');
-    }
-    const inc = Array.isArray(incoming) ? incoming : [];
-    const willAdd = inc.filter(v => !current.some(existing => deepEqual(existing, v)));
-    const willPreserve = inc.length - willAdd.length;
-    const lines: string[] = [];
-    lines.push(c.dim(`append ${willAdd.length}, preserve ${willPreserve}`));
-    if (willAdd.length > 0) lines.push(c.ok('+ ') + sampleValues(willAdd, 5));
-    return lines.join('\n');
-  }
-  if (typeof current !== 'object' || current === null || Array.isArray(current)) {
-    return c.err('! cannot merge: existing value at path is not an object');
-  }
-  const cur = current as Record<string, unknown>;
-  const inc = incoming as Record<string, unknown>;
-  const keys = Object.keys(inc);
-  const willAdd = keys.filter(k => !(k in cur));
-  const overlap = keys.filter(k => k in cur);
-  const willOverwrite = meta.mode === 'merge-overwrite' ? overlap.filter(k => !deepEqual(cur[k], inc[k])) : [];
-  const willPreserve  = meta.mode === 'merge-overwrite' ? overlap.filter(k => deepEqual(cur[k], inc[k])) : overlap;
-  const lines: string[] = [];
-  lines.push(c.dim(`add ${willAdd.length}, preserve ${willPreserve.length}` +
-    (meta.mode === 'merge-overwrite' ? `, overwrite ${willOverwrite.length}` : '')));
-  if (willAdd.length > 0)       lines.push(c.ok('+ ')   + sample(willAdd, 5));
-  if (willOverwrite.length > 0) lines.push(c.warn('~ ') + sample(willOverwrite, 5));
-  return lines.join('\n');
 }
 
 function removeDiff(current: unknown, incoming: unknown, meta: ConfMeta): string {
