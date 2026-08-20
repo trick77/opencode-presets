@@ -207,13 +207,28 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
   return { meta, body };
 }
 
+// Index of the nth occurrence of `needle`, or -1 if there are fewer than n.
+function nthIndexOf(haystack: string, needle: string, n: number): number {
+  let idx = -1;
+  for (let i = 0; i < n; i++) {
+    idx = haystack.indexOf(needle, idx + 1);
+    if (idx === -1) return -1;
+  }
+  return idx;
+}
+
 function parsePrompt(value: string, filePath: string): PromptDirective {
-  // Only the first four separators are structural. Everything after them is
-  // the setup hint, which is a shell command and may well contain pipes —
-  // `curl -fsSL https://…/install.sh | bash` is how one of these tools is
-  // installed. Same rule as @requires-bin, which splits at its first `|` only.
-  const split = value.split('|').map(s => s.trim());
-  const parts = split.length > 5 ? [...split.slice(0, 4), split.slice(4).join(' | ')] : split;
+  // Only the first four separators are structural. Everything after the fourth
+  // is the setup hint, taken verbatim: it is a shell command and may well
+  // contain pipes — `curl -fsSL https://…/install.sh | bash` is how one of
+  // these tools is installed. Sliced rather than split-and-rejoined, because a
+  // rejoin normalises the spacing around every pipe it passes, and a pipe
+  // inside quotes (`--grep 'fix|feat'`) is a different pattern with spaces
+  // around it. This string is printed for the user to paste.
+  const fourth = nthIndexOf(value, '|', 4);
+  const structural = fourth === -1 ? value : value.slice(0, fourth);
+  const parts = structural.split('|').map(s => s.trim());
+  if (fourth !== -1) parts.push(value.slice(fourth + 1).trim());
   if (parts.length < 2) {
     throw parseError(filePath, 0, `@prompt must be "name | type | help | default | setup" (help, default and setup optional), got "${value}"`);
   }
