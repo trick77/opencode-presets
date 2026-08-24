@@ -67,17 +67,22 @@ test('ships a dcg plugin preset that appends the destructive-command guard plugi
   // once and every command runs unchecked — a guard sitting in the config that
   // is not guarding, which is worse than no plugin at all. The preset declares
   // the dependency so install refuses instead of writing that state.
-  // Two ways in, because there is no single one: Homebrew has the upstream tap,
-  // and nix has no dcg package at all, so a nix box builds the crate. Each line
-  // is a command the user can paste as-is — that is what formatSetup prints.
+  // Several ways in, because there is no single one and no one route suits every
+  // shop: Homebrew has the upstream tap, crates.io covers anywhere with a Rust
+  // toolchain (nix included — dcg itself is not in nixpkgs), and the signed
+  // release assets are there for anyone who will not curl-pipe an installer.
   assert.deepEqual(meta.requiresBin, [
     {
       bin: 'dcg',
       setup: '# Homebrew, from the upstream tap (macOS and Linux):\n' +
         'brew install dicklesworthstone/tap/dcg\n' +
-        '# or on nix \u2014 dcg is not in nixpkgs, so build the crate (needs Rust 1.95+):\n' +
-        "nix-shell -p cargo rustc --run 'cargo install destructive_command_guard'\n" +
-        '# a cargo install lands in ~/.cargo/bin, which must be on PATH',
+        '# or from crates.io, anywhere a Rust toolchain is available \u2014 get one with\n' +
+        '# `nix-env -iA nixpkgs.cargo`, `dnf install cargo`, `apt install cargo`:\n' +
+        'cargo install destructive_command_guard\n' +
+        '# this one lands in ~/.cargo/bin, which then has to be on PATH\n' +
+        '# or a signed release binary, checksums and attestations alongside each asset:\n' +
+        '# https://github.com/Dicklesworthstone/destructive_command_guard/releases\n' +
+        '# upstream also has an install.sh that curl-pipes to bash, if you like those',
     },
   ]);
 });
