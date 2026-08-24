@@ -67,8 +67,18 @@ test('ships a dcg plugin preset that appends the destructive-command guard plugi
   // once and every command runs unchecked — a guard sitting in the config that
   // is not guarding, which is worse than no plugin at all. The preset declares
   // the dependency so install refuses instead of writing that state.
+  // Two ways in, because there is no single one: Homebrew has the upstream tap,
+  // and nix has no dcg package at all, so a nix box builds the crate. Each line
+  // is a command the user can paste as-is — that is what formatSetup prints.
   assert.deepEqual(meta.requiresBin, [
-    { bin: 'dcg', setup: 'brew install dicklesworthstone/tap/dcg' },
+    {
+      bin: 'dcg',
+      setup: '# Homebrew, from the upstream tap (macOS and Linux):\n' +
+        'brew install dicklesworthstone/tap/dcg\n' +
+        '# or on nix \u2014 dcg is not in nixpkgs, so build the crate (needs Rust 1.95+):\n' +
+        "nix-shell -p cargo rustc --run 'cargo install destructive_command_guard'\n" +
+        '# a cargo install lands in ~/.cargo/bin, which must be on PATH',
+    },
   ]);
 });
 
@@ -230,6 +240,7 @@ test('records the pinned third-party version of every preset that installs one',
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.79' }],
     'plugin-dcg': [{ name: 'opencode-plugin-dcg', version: '0.2.0' }],
     'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.8.1' }],
+    'plugin-opencode-planify-german': [{ name: 'opencode-planify-german', version: '0.3.2' }],
     'plugin-superpowers': [{ name: 'superpowers', version: '6.3.0' }],
   };
 

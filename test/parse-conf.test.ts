@@ -344,6 +344,51 @@ describe('parseConfString — @requires-bin', () => {
     assert.deepEqual(meta.requiresBin, []);
   });
 
+  // A tool with more than one way in needs more than one line. Joined with a
+  // newline, never a space: formatSetup prints these line by line and each one
+  // has to survive as something the user can paste.
+  test('continues a setup hint across following comment lines', () => {
+    const src = minimalHeader +
+      '// @requires-bin: dcg | brew install dicklesworthstone/tap/dcg\n' +
+      '//   # or:\n' +
+      "//   nix-shell -p cargo rustc --run 'cargo install destructive_command_guard'\n" +
+      '\n{}';
+    const { meta } = parseConfString(src);
+    assert.deepEqual(meta.requiresBin, [{
+      bin: 'dcg',
+      setup: 'brew install dicklesworthstone/tap/dcg\n# or:\n' +
+        "nix-shell -p cargo rustc --run 'cargo install destructive_command_guard'",
+    }]);
+  });
+
+  // The hint may start on the continuation lines: the @ line then carries the
+  // binary name alone, with no trailing pipe to leave dangling.
+  test('starts a setup hint on a continuation line', () => {
+    const src = minimalHeader +
+      '// @requires-bin: dcg\n' +
+      '//   brew install dicklesworthstone/tap/dcg\n' +
+      '\n{}';
+    const { meta } = parseConfString(src);
+    assert.deepEqual(meta.requiresBin, [
+      { bin: 'dcg', setup: 'brew install dicklesworthstone/tap/dcg' },
+    ]);
+  });
+
+  // Two @requires-bin lines in a row: a continuation belongs to the one right
+  // above it, not to the first or to all of them.
+  test('attaches a continuation to the most recent @requires-bin', () => {
+    const src = minimalHeader +
+      '// @requires-bin: dcg\n' +
+      '// @requires-bin: jq\n' +
+      '//   brew install jq\n' +
+      '\n{}';
+    const { meta } = parseConfString(src);
+    assert.deepEqual(meta.requiresBin, [
+      { bin: 'dcg' },
+      { bin: 'jq', setup: 'brew install jq' },
+    ]);
+  });
+
   // A path would make the check pass on the author's machine and fail on
   // everyone else's; the whole point is a name resolved against PATH.
   test('rejects a path rather than a name', () => {

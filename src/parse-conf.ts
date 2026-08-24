@@ -145,6 +145,16 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
     } else if (lastKey === 'description') {
       const cont = stripped.trim();
       if (cont.length > 0) meta.description += ' ' + cont;
+    } else if (lastKey === 'requires-bin') {
+      // A setup hint may take several lines: one tool has more than one way in
+      // (a package manager on one platform, a source build on another), and
+      // formatSetup already prints a hint line by line. Joined with a newline
+      // rather than a space so each line stays a command the user can paste.
+      const cont = stripped.trim();
+      if (cont.length > 0) {
+        const req = meta.requiresBin[meta.requiresBin.length - 1];
+        req.setup = req.setup ? req.setup + '\n' + cont : cont;
+      }
     }
   }
 
