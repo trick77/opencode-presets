@@ -491,7 +491,7 @@ function renderFooter(
   lines.push('  ' + c.dim('Leaves replaced:   ') + leavesReplaced);
   lines.push('  ' + c.dim('Keys added:        ') + keysAdded);
   if (dedups > 0)        lines.push('  ' + c.dim('Duplicates skipped:') + ' ' + dedups);
-  if (superseded > 0)    lines.push('  ' + c.dim('Older versions replaced:') + ' ' + superseded);
+  if (superseded > 0)    lines.push('  ' + c.dim('Versions replaced: ') + superseded);
   if (backupPath)        lines.push('  ' + c.dim('Backup:            ') + backupPath);
 
   return lines.join('\n');

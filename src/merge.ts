@@ -92,28 +92,37 @@ function combine(existing: Json, incoming: Json, mode: MergeMode): { value: Json
     }
     const target: Json[] = Array.isArray(existing) ? [...existing] : [];
     for (const v of incoming) {
-      if (target.some(existingValue => deepEqual(existingValue, v))) {
-        stats.preserved++;
-        continue;
-      }
       const name = specName(v);
+      // The first entry naming the same package anchors the position. Look it
+      // up before the deep-equality check: a config holding both `pkg@0.8.1`
+      // and `pkg@0.9.0` must still collapse when `pkg@0.9.0` is installed, and
+      // an equality-first check would call that a preserved no-op and leave the
+      // stale entry behind.
       const at = name === null ? -1 : target.findIndex(existingValue => specName(existingValue) === name);
       if (at === -1) {
+        if (target.some(existingValue => deepEqual(existingValue, v))) {
+          stats.preserved++;
+          continue;
+        }
         target.push(v);
         stats.added++;
         continue;
       }
-      // Same package, different version. Overwrite in place so the entry keeps
-      // its position, and drop any further copies of the same package: a config
-      // that already stacked several bumps collapses to one on the next install.
-      target[at] = v;
+      // Same package. Overwrite in place so the entry keeps its position, and
+      // drop any further copies of the same package: a config that already
+      // stacked several bumps collapses to one on the next install.
+      if (deepEqual(target[at], v)) {
+        stats.preserved++;
+      } else {
+        target[at] = v;
+        stats.superseded++;
+      }
       for (let i = target.length - 1; i > at; i--) {
         if (specName(target[i]) === name) {
           target.splice(i, 1);
           stats.superseded++;
         }
       }
-      stats.superseded++;
     }
     return { value: target, stats };
   }

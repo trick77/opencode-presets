@@ -125,6 +125,17 @@ describe('applyAtPath — append mode', () => {
     assert.equal(stats.superseded, 0);
   });
 
+  // The upgrade path from a config the old code stacked: the newest version is
+  // already present next to a stale one, so an equality-first check would call
+  // this a preserved no-op and leave the plugin loading twice.
+  test('collapses a stale sibling even when the incoming version is already present', () => {
+    const root = { plugin: ['pricing@0.8.1', 'pricing@0.9.0'] };
+    const { next, stats } = applyAtPath(root, 'plugin', ['pricing@0.9.0'], 'append');
+    assert.deepEqual((next as any).plugin, ['pricing@0.9.0']);
+    assert.equal(stats.added, 0);
+    assert.equal(stats.superseded, 2); // stale entry replaced, exact duplicate dropped
+  });
+
   test('matches scoped packages and git specs on the package name', () => {
     const scoped = applyAtPath({ plugin: ['@scope/pkg@1.0.0'] }, 'plugin', ['@scope/pkg@2.0.0'], 'append');
     assert.deepEqual((scoped.next as any).plugin, ['@scope/pkg@2.0.0']);
