@@ -100,6 +100,76 @@ describe('applyAtPath — append mode', () => {
     assert.equal(stats.preserved, 1);
   });
 
+  // opencode loads every entry in `plugin`, so leaving an old `pkg@0.8.1`
+  // behind next to a new `pkg@0.9.0` loads the plugin twice at two versions.
+  test('supersedes an older version of the same package instead of stacking it', () => {
+    const root = { plugin: ['opencode-plugin-dcg@0.2.0', 'pricing@0.8.1'] };
+    const { next, stats } = applyAtPath(root, 'plugin', ['pricing@0.9.0'], 'append');
+    assert.deepEqual((next as any).plugin, ['opencode-plugin-dcg@0.2.0', 'pricing@0.9.0']);
+    assert.equal(stats.added, 0);
+    assert.equal(stats.superseded, 1);
+  });
+
+  test('collapses a config that already stacked several versions, keeping position', () => {
+    const root = { plugin: ['pricing@0.7.0', 'dcg@0.2.0', 'pricing@0.8.0', 'pricing@0.8.1'] };
+    const { next, stats } = applyAtPath(root, 'plugin', ['pricing@0.9.0'], 'append');
+    assert.deepEqual((next as any).plugin, ['pricing@0.9.0', 'dcg@0.2.0']);
+    assert.equal(stats.superseded, 3);
+  });
+
+  test('reinstalling the same version stays a preserved no-op', () => {
+    const root = { plugin: ['pricing@0.9.0'] };
+    const { next, stats } = applyAtPath(root, 'plugin', ['pricing@0.9.0'], 'append');
+    assert.deepEqual((next as any).plugin, ['pricing@0.9.0']);
+    assert.equal(stats.preserved, 1);
+    assert.equal(stats.superseded, 0);
+  });
+
+  // The upgrade path from a config the old code stacked: the newest version is
+  // already present next to a stale one, so an equality-first check would call
+  // this a preserved no-op and leave the plugin loading twice.
+  test('collapses a stale sibling even when the incoming version is already present', () => {
+    const root = { plugin: ['pricing@0.8.1', 'pricing@0.9.0'] };
+    const { next, stats } = applyAtPath(root, 'plugin', ['pricing@0.9.0'], 'append');
+    assert.deepEqual((next as any).plugin, ['pricing@0.9.0']);
+    assert.equal(stats.added, 0);
+    assert.equal(stats.superseded, 2); // stale entry replaced, exact duplicate dropped
+  });
+
+  test('matches scoped packages and git specs on the package name', () => {
+    const scoped = applyAtPath({ plugin: ['@scope/pkg@1.0.0'] }, 'plugin', ['@scope/pkg@2.0.0'], 'append');
+    assert.deepEqual((scoped.next as any).plugin, ['@scope/pkg@2.0.0']);
+
+    const git = applyAtPath(
+      { plugin: ['superpowers@git+https://github.com/obra/superpowers.git#v6.3.0'] },
+      'plugin',
+      ['superpowers@git+https://github.com/obra/superpowers.git#v6.4.0'],
+      'append'
+    );
+    assert.deepEqual((git.next as any).plugin, ['superpowers@git+https://github.com/obra/superpowers.git#v6.4.0']);
+  });
+
+  // Only `name@spec` entries carry a package identity. A fetched skill path or
+  // a prompted directory must keep the plain additive behaviour, or unrelated
+  // entries sharing a prefix would silently delete each other.
+  test('leaves non-package entries to plain append', () => {
+    const root = { skill: ['{{cache}}/planify-skills-0.3.2'] };
+    const { next, stats } = applyAtPath(root, 'skill', ['{{cache}}/planify-skills-0.4.0'], 'append');
+    assert.deepEqual((next as any).skill, ['{{cache}}/planify-skills-0.3.2', '{{cache}}/planify-skills-0.4.0']);
+    assert.equal(stats.added, 1);
+    assert.equal(stats.superseded, 0);
+  });
+
+  // `git+https://user@host/...` has a trailing `@` that does not split a
+  // package name; splitting there would key on a URL fragment.
+  test('ignores a git spec whose URL carries credentials', () => {
+    const root = { plugin: ['pkg@git+https://user@host/a.git#v1'] };
+    const { next, stats } = applyAtPath(root, 'plugin', ['pkg@git+https://user@host/a.git#v2'], 'append');
+    assert.equal((next as any).plugin.length, 2);
+    assert.equal(stats.added, 1);
+    assert.equal(stats.superseded, 0);
+  });
+
   test('rejects non-array body', () => {
     assert.throws(() => applyAtPath({}, 'plugin', { a: 1 }, 'append'), /JSON array/);
   });

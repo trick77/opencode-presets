@@ -57,8 +57,8 @@ something outside your opencode config say so in their description.
 | `mcp-litellm-passthrough` | MCP | replace | Install `mcp-litellm` first — re-running it replaces `mcp.litellm` and drops these headers. Adds one `x-mcp-<alias>-<header>` passthrough header to the `mcp.litellm` server so an upstream MCP server authenticates as you (run once per header) |
 | `mcp-playwright` | MCP | replace | Add the Playwright MCP server (local stdio via npx; pins `@playwright/mcp` 0.0.79) |
 | `mcp-vscode` | MCP | replace | Requires the `JuehangQin.vscode-mcp-server` extension installed, enabled and toggled active in VS Code first — this preset does not install it. Adds the VS Code MCP server via that extension (loopback HTTP, default port 3000) |
-| `plugin-litellm-pricing` | Plugin | append | Install `provider-litellm` too — the catalog URL has no default and lives there, and without it the models are still discovered, just unpriced. Adds `opencode-plugin-litellm-pricing`: discovers a LiteLLM proxy's models at runtime and adds them to the picker with real per-model pricing from a LiteLLM-format model catalog instead of `$0` (pins `opencode-plugin-litellm-pricing` 0.8.1) |
-| `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL for `plugin-litellm-pricing`, and name the model catalog it prices against — neither the plugin nor this preset has a default one (prompts for base URL, API key and catalog URL; no models list) |
+| `plugin-litellm-pricing` | Plugin | append | Install `provider-litellm` too — without a `litellm` provider pointing at your proxy the plugin does nothing. Adds `opencode-plugin-litellm-pricing`: discovers a LiteLLM proxy's models at runtime and adds them to the picker with the proxy's own per-model pricing instead of `$0` (pins `opencode-plugin-litellm-pricing` 0.9.0) |
+| `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL and key for `plugin-litellm-pricing`, which prices the models against that same proxy (prompts for base URL and API key; no models list) |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.3.0`) |
 | `plugin-dcg` | Plugin | append | Install the external `dcg` binary yourself first — `brew install dicklesworthstone/tap/dcg`; or `cargo install destructive_command_guard` wherever a Rust toolchain is available (dcg is not in nixpkgs, so on nix that means `nix-env -iA nixpkgs.cargo` then the cargo line, and `~/.cargo/bin` on `PATH`); or a signed release binary from [the releases page](https://github.com/Dicklesworthstone/destructive_command_guard/releases), which ships a `.sha256` and sigstore attestations per asset — the x86_64 Linux build is static musl, so it needs nothing from the distro. Upstream also has a curl-pipe `install.sh` if you like those. The install refuses while `dcg` is not on `PATH`, because without it the plugin warns once and every command runs unchecked. **Experimental** — the plugin is at 0.2.x and its behaviour can still change. Adds `opencode-plugin-dcg`: runs every bash command past `dcg` and blocks the destructive ones (pins `opencode-plugin-dcg` 0.2.0) |
 | `privacy-share-disabled` | Privacy | replace | In the bundle. Sets `share` to "disabled" so opencode never publishes a session, automatically or on command |
@@ -182,42 +182,22 @@ opencode-presets reset mcp.openrag-tom
 
 ### Pricing a LiteLLM proxy
 
-`plugin-litellm-pricing` has no built-in catalog URL: it fetches the model
-catalog you name in `options.catalogURL` and nothing else. Name none and the
-models are still discovered and injected — they just carry no cost, and the
-startup log says so, naming the provider:
-
-```
-[litellm-pricing] provider "litellm" has no options.catalogURL — set it to a
-  model catalog in LiteLLM `model_prices_and_context_window.json` format;
-  every model will be injected without pricing.
-```
-
-`provider-litellm` prompts for that URL and writes it. It offers no default
-either — a default here would put back the third-party host the plugin
-deliberately does not reach for, one layer down — so a blank answer ends the
-install rather than writing someone else's URL into your config. Two answers are
-usual:
-
-```
-https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
-```
-
-LiteLLM's published catalog, which covers the public model line. Or, if your
-gateway serves an enriched copy — upstream's entries plus your own model names,
-with their real context and pricing — name that instead: those models then price
-by exact name rather than by substring against the public line. The URL is
-repeated in the preset's description, so it is on screen when the prompt asks.
-
-Non-interactively, pass it in:
+Pricing takes no configuration of its own. `plugin-litellm-pricing` reads each
+model's cost, limits and capabilities from the proxy `provider-litellm` already
+points at, so the base URL and key are the whole setup. The numbers are
+LiteLLM's own resolved ones, your config-level `model_info` overrides included,
+so what opencode displays is what the gateway bills. A model the proxy reports
+no cost for is injected without a `cost` block rather than with a wrong one, and
+the startup log names it:
 
 ```sh
-opencode-presets install provider-litellm --set catalogURL=https://…/model_prices_and_context_window.json
+grep litellm-pricing ~/.local/share/opencode/log/opencode.log
 ```
 
 `provider-litellm` is a `replace` preset, so re-running it rewrites the whole
 `provider.litellm` block and re-prompts for the base URL and key as well — have
-the key to hand.
+the key to hand. Coming from an earlier install, re-run it once: that is what
+clears the now-unused `options.catalogURL` out of your config.
 
 ### Checking commands with `dcg`
 
@@ -368,7 +348,11 @@ on a readline for the next.
   rules so user edits stick around.
 - `append` — the preset's array entries are appended if missing;
   existing array entries are preserved. Use this for shared arrays
-  like `plugin`.
+  like `plugin`. An entry of the form `name@version` supersedes every
+  existing entry naming the same package, in place: bumping a pinned
+  plugin replaces the old pin instead of leaving both in the array for
+  opencode to load twice. A config that already stacked several bumps
+  collapses to the newest one on the next install.
 
 Re-installing is always safe: a no-op produces no backup and no
 write.

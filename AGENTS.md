@@ -73,6 +73,16 @@ Body is JSONC, must parse to JSON matching the `@path` leaf: any shape for
 `replace`, object for `merge`/`merge-overwrite`, array for `append`.
 Substitutions in body and `@path`: `{{cache}}`, `{{prompt:<name>}}`.
 
+## Append supersedes a version bump
+
+`append` dedupes by deep equality, so `pkg@0.8.1` and `pkg@0.9.0` are two
+entries and opencode loads the plugin twice. An incoming `name@spec` entry
+therefore replaces every existing entry with the same package name, in place
+(`specName` in `src/merge.ts`), and stacked configs collapse on next install.
+Non-`name@spec` entries (`{{cache}}` fetch dests, prompted dirs, git URLs with
+credentials) stay plain append — a heuristic there would delete unrelated
+entries. `remove` is untouched: it still deletes only exact matches.
+
 ## Merge stays additive
 
 `merge` MUST NOT overwrite existing keys — existing values win, only missing

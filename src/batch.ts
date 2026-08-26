@@ -473,6 +473,7 @@ function renderFooter(
         summary += c.dim(` (${m.stats.preservedBatch} dedup'd in batch)`);
       }
       if (m.stats.overwritten) summary += `, overwritten ${m.stats.overwritten}`;
+      if (m.stats.superseded) summary += `, superseded ${m.stats.superseded}`;
     }
     lines.push('  • ' + c.bold(m.meta.name) + c.meta(' — ') + summary);
     for (const line of shadowedDenyWarnings(m)) lines.push(line);
@@ -483,12 +484,14 @@ function renderFooter(
   const leavesReplaced = modules.filter(m => m.stats && m.stats.mode === 'replace' && m.stats.replaced).length;
   const keysAdded = modules.reduce((n, m) => n + (m.stats?.added || 0), 0);
   const dedups = modules.reduce((n, m) => n + (m.stats?.preservedBatch || 0), 0);
+  const superseded = modules.reduce((n, m) => n + (m.stats?.superseded || 0), 0);
 
   lines.push('');
   if (resetStats.length > 0) lines.push('  ' + c.dim('Resets applied:    ') + resetsApplied);
   lines.push('  ' + c.dim('Leaves replaced:   ') + leavesReplaced);
   lines.push('  ' + c.dim('Keys added:        ') + keysAdded);
   if (dedups > 0)        lines.push('  ' + c.dim('Duplicates skipped:') + ' ' + dedups);
+  if (superseded > 0)    lines.push('  ' + c.dim('Versions replaced: ') + superseded);
   if (backupPath)        lines.push('  ' + c.dim('Backup:            ') + backupPath);
 
   return lines.join('\n');
