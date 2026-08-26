@@ -50,7 +50,7 @@ test('ships a litellm plugin preset that appends the runtime-discovery plugin', 
   assert.equal(meta.name, 'plugin-litellm-pricing');
   assert.equal(meta.path, 'plugin');
   assert.equal(meta.mode, 'append');
-  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@0.8.1']);
+  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@0.9.0']);
 });
 
 test('ships a dcg plugin preset that appends the destructive-command guard plugin', async () => {
@@ -152,23 +152,14 @@ test('ships a litellm provider preset that points at a proxy URL, no models', as
   assert.equal(meta.mode, 'replace');
 
   // The key is prompted for as a secret (hidden input) and written into the
-  // config, matching how mcp-http handles header credentials. `catalogURL` is
-  // the model catalog the plugin prices against — context windows, modalities
-  // and costs — so anyone serving an enriched copy can point at that instead
-  // of LiteLLM's published file.
-  // `catalogURL` has no default, and that is asserted rather than assumed:
-  // plugin 0.6.0 removed DEFAULT_PRICE_TABLE_URL so it would never fetch a
-  // host its operator had not named, and a default here would have reinstated
-  // exactly that, one layer down. The cost is that a blank answer aborts the
-  // install (src/batch.ts) instead of quietly writing someone else's URL into
-  // your config — which is the intended trade. The published table is in the
-  // preset's @description, where it can be read and pasted.
+  // config, matching how mcp-http handles header credentials. Base URL and key
+  // are the whole configuration: plugin 0.9.0 prices against the same proxy, so
+  // there is nothing else to name.
   assert.deepEqual(
     meta.prompts.map((p) => ({ name: p.name, type: p.type, default: p.default })),
     [
       { name: 'baseURL', type: 'text', default: 'http://localhost:4000/v1' },
       { name: 'apiKey', type: 'secret', default: undefined },
-      { name: 'catalogURL', type: 'text', default: undefined },
     ],
   );
 
@@ -180,7 +171,6 @@ test('ships a litellm provider preset that points at a proxy URL, no models', as
     options: {
       baseURL: '{{prompt:baseURL}}',
       apiKey: '{{prompt:apiKey}}',
-      catalogURL: '{{prompt:catalogURL}}',
     },
   });
 });
@@ -244,7 +234,7 @@ test('records the pinned third-party version of every preset that installs one',
     'jdtls-lombok': [{ name: 'lombok', version: '1.18.46' }],
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.79' }],
     'plugin-dcg': [{ name: 'opencode-plugin-dcg', version: '0.2.0' }],
-    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.8.1' }],
+    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.9.0' }],
     'plugin-opencode-planify-german': [{ name: 'opencode-planify-german', version: '0.3.2' }],
     'plugin-superpowers': [{ name: 'superpowers', version: '6.3.0' }],
   };

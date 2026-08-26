@@ -9,6 +9,9 @@
 //                       keys.
 //   'append'          — additive array merge: existing entries are preserved
 //                       and missing incoming entries are appended. Idempotent.
+//                       An incoming `name@spec` entry supersedes every existing
+//                       entry naming the same package, rather than stacking a
+//                       second version of it alongside the first.
 
 export type MergeMode = 'replace' | 'merge' | 'merge-overwrite' | 'append';
 
@@ -17,6 +20,7 @@ export interface ApplyStats {
   added: number;
   preserved: number;
   overwritten: number;
+  superseded: number;
   replaced: boolean;
 }
 
@@ -58,8 +62,26 @@ export function applyAtPath(
   return { next, stats };
 }
 
+// The package named by a `name@spec` append entry — `pkg@1.2.3`,
+// `@scope/pkg@1.2.3`, `superpowers@git+https://…#v6.3.0`. opencode loads every
+// entry in the array, so two specs naming the same package load that plugin
+// twice at two versions; append mode uses this to supersede instead of stack.
+// Anything that is not a `name@spec` string returns null and keeps the plain
+// append behaviour: a `{{cache}}` fetch destination, a prompted directory, or a
+// git URL carrying credentials (`git+https://user@host/…`), whose trailing `@`
+// would otherwise split in the wrong place.
+function specName(value: Json): string | null {
+  if (typeof value !== 'string') return null;
+  const at = value.lastIndexOf('@');
+  // at === 0 is a bare scope (`@scope/pkg`), which names no version.
+  if (at <= 0 || at === value.length - 1) return null;
+  const name = value.slice(0, at);
+  if (name.includes('/') && !name.startsWith('@')) return null;
+  return name;
+}
+
 function combine(existing: Json, incoming: Json, mode: MergeMode): { value: Json; stats: ApplyStats } {
-  const stats: ApplyStats = { mode, added: 0, preserved: 0, overwritten: 0, replaced: false };
+  const stats: ApplyStats = { mode, added: 0, preserved: 0, overwritten: 0, superseded: 0, replaced: false };
 
   if (mode === 'append') {
     if (!Array.isArray(incoming)) {
@@ -72,10 +94,26 @@ function combine(existing: Json, incoming: Json, mode: MergeMode): { value: Json
     for (const v of incoming) {
       if (target.some(existingValue => deepEqual(existingValue, v))) {
         stats.preserved++;
-      } else {
+        continue;
+      }
+      const name = specName(v);
+      const at = name === null ? -1 : target.findIndex(existingValue => specName(existingValue) === name);
+      if (at === -1) {
         target.push(v);
         stats.added++;
+        continue;
       }
+      // Same package, different version. Overwrite in place so the entry keeps
+      // its position, and drop any further copies of the same package: a config
+      // that already stacked several bumps collapses to one on the next install.
+      target[at] = v;
+      for (let i = target.length - 1; i > at; i--) {
+        if (specName(target[i]) === name) {
+          target.splice(i, 1);
+          stats.superseded++;
+        }
+      }
+      stats.superseded++;
     }
     return { value: target, stats };
   }
