@@ -13,7 +13,6 @@ export type PinSource =
 
 export const PIN_SOURCES: Record<string, PinSource> = {
   '@playwright/mcp': { kind: 'npm', pkg: '@playwright/mcp' },
-  'opencode-plugin-dcg': { kind: 'npm', pkg: 'opencode-plugin-dcg' },
   'opencode-plugin-litellm-pricing': { kind: 'npm', pkg: 'opencode-plugin-litellm-pricing' },
   'opencode-planify-german': { kind: 'npm', pkg: 'opencode-planify-german' },
   'superpowers': { kind: 'github-release', repo: 'obra/superpowers' },

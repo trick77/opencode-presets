@@ -95,7 +95,7 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
   // ── Check required binaries ──
   //
   // Before the summary, so nobody confirms an install that cannot survive its
-  // own preconditions: the summary prints "needs dcg on PATH ✓" and getting
+  // own preconditions: the summary prints "needs <bin> on PATH ✓" and getting
   // that far now means it was verified, not merely declared. Install only —
   // `remove` must keep working after the binary is gone, which is precisely
   // when you want the entry out of your config.

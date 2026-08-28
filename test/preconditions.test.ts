@@ -69,35 +69,35 @@ describe('checkDir', () => {
 describe('findOnPath', () => {
   test('finds an executable on the given PATH', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'precond-bin-'));
-    const bin = join(dir, 'fakedcg');
+    const bin = join(dir, 'fakebin');
     await writeFile(bin, '#!/bin/sh\n');
     await chmod(bin, 0o755);
 
-    assert.equal(await findOnPath('fakedcg', { PATH: dir }), bin);
+    assert.equal(await findOnPath('fakebin', { PATH: dir }), bin);
   });
 
   test('does not find it when the dir is not on PATH', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'precond-bin-'));
-    const bin = join(dir, 'fakedcg');
+    const bin = join(dir, 'fakebin');
     await writeFile(bin, '#!/bin/sh\n');
     await chmod(bin, 0o755);
 
-    assert.equal(await findOnPath('fakedcg', { PATH: '/nonexistent-dir-9f3a2b' }), null);
+    assert.equal(await findOnPath('fakebin', { PATH: '/nonexistent-dir-9f3a2b' }), null);
   });
 
   // Present but not runnable is the same as absent for our purposes: the
   // plugin would still fail to invoke it.
   test('does not accept a file that is not executable', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'precond-bin-'));
-    await writeFile(join(dir, 'fakedcg'), '#!/bin/sh\n');
-    await chmod(join(dir, 'fakedcg'), 0o644);
+    await writeFile(join(dir, 'fakebin'), '#!/bin/sh\n');
+    await chmod(join(dir, 'fakebin'), 0o644);
 
-    assert.equal(await findOnPath('fakedcg', { PATH: dir }), null);
+    assert.equal(await findOnPath('fakebin', { PATH: dir }), null);
   });
 
   test('survives an empty or unset PATH', async () => {
-    assert.equal(await findOnPath('fakedcg', { PATH: '' }), null);
-    assert.equal(await findOnPath('fakedcg', {}), null);
+    assert.equal(await findOnPath('fakebin', { PATH: '' }), null);
+    assert.equal(await findOnPath('fakebin', {}), null);
   });
 });
 

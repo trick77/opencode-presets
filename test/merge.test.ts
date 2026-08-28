@@ -103,17 +103,17 @@ describe('applyAtPath — append mode', () => {
   // opencode loads every entry in `plugin`, so leaving an old `pkg@0.8.1`
   // behind next to a new `pkg@0.9.0` loads the plugin twice at two versions.
   test('supersedes an older version of the same package instead of stacking it', () => {
-    const root = { plugin: ['opencode-plugin-dcg@0.2.0', 'pricing@0.8.1'] };
+    const root = { plugin: ['superpowers@6.3.0', 'pricing@0.8.1'] };
     const { next, stats } = applyAtPath(root, 'plugin', ['pricing@0.9.0'], 'append');
-    assert.deepEqual((next as any).plugin, ['opencode-plugin-dcg@0.2.0', 'pricing@0.9.0']);
+    assert.deepEqual((next as any).plugin, ['superpowers@6.3.0', 'pricing@0.9.0']);
     assert.equal(stats.added, 0);
     assert.equal(stats.superseded, 1);
   });
 
   test('collapses a config that already stacked several versions, keeping position', () => {
-    const root = { plugin: ['pricing@0.7.0', 'dcg@0.2.0', 'pricing@0.8.0', 'pricing@0.8.1'] };
+    const root = { plugin: ['pricing@0.7.0', 'superpowers@6.3.0', 'pricing@0.8.0', 'pricing@0.8.1'] };
     const { next, stats } = applyAtPath(root, 'plugin', ['pricing@0.9.0'], 'append');
-    assert.deepEqual((next as any).plugin, ['pricing@0.9.0', 'dcg@0.2.0']);
+    assert.deepEqual((next as any).plugin, ['pricing@0.9.0', 'superpowers@6.3.0']);
     assert.equal(stats.superseded, 3);
   });
 
