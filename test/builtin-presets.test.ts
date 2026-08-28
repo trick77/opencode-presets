@@ -53,46 +53,12 @@ test('ships a litellm plugin preset that appends the runtime-discovery plugin', 
   assert.deepEqual(body, ['opencode-plugin-litellm-pricing@0.9.0']);
 });
 
-test('ships a dcg plugin preset that appends the destructive-command guard plugin', async () => {
-  const preset = resolve(process.cwd(), 'presets/plugin-dcg.conf');
-
-  const { meta, body } = await parseConf(preset);
-
-  assert.equal(meta.name, 'plugin-dcg');
-  assert.equal(meta.path, 'plugin');
-  assert.equal(meta.mode, 'append');
-  assert.deepEqual(body, ['opencode-plugin-dcg@0.2.0']);
-
-  // The plugin is a shim over an external binary. Without dcg on PATH it warns
-  // once and every command runs unchecked — a guard sitting in the config that
-  // is not guarding, which is worse than no plugin at all. The preset declares
-  // the dependency so install refuses instead of writing that state.
-  // Several ways in, because there is no single one and no one route suits every
-  // shop: Homebrew has the upstream tap, crates.io covers anywhere with a Rust
-  // toolchain (nix included — dcg itself is not in nixpkgs), and the signed
-  // release assets are there for anyone who will not curl-pipe an installer.
-  assert.deepEqual(meta.requiresBin, [
-    {
-      bin: 'dcg',
-      setup: '# Homebrew, from the upstream tap (macOS and Linux):\n' +
-        'brew install dicklesworthstone/tap/dcg\n' +
-        '# or from crates.io, anywhere a Rust toolchain is available \u2014 get one with\n' +
-        '# `nix-env -iA nixpkgs.cargo`, `dnf install cargo`, `apt install cargo`:\n' +
-        'cargo install destructive_command_guard\n' +
-        '# this one lands in ~/.cargo/bin, which then has to be on PATH\n' +
-        '# or a signed release binary, checksums and attestations alongside each asset:\n' +
-        '# https://github.com/Dicklesworthstone/destructive_command_guard/releases\n' +
-        '# upstream also has an install.sh that curl-pipes to bash, if you like those',
-    },
-  ]);
-});
-
 test('only the presets that drive an external binary declare @requires-bin', async () => {
   // A precondition that refuses an install is not something to acquire by
-  // accident: every preset carrying one is listed here on purpose.
-  const expected: Record<string, string[]> = {
-    'plugin-dcg': ['dcg'],
-  };
+  // accident: every preset carrying one is listed here on purpose. No shipped
+  // preset needs an external binary right now, so the map is empty and the
+  // loop below is what catches one arriving unannounced.
+  const expected: Record<string, string[]> = {};
 
   for (const file of await shippedPresets()) {
     const { meta } = await parseConf(file);
@@ -233,7 +199,6 @@ test('records the pinned third-party version of every preset that installs one',
   const expected: Record<string, Array<{ name: string; version: string }>> = {
     'jdtls-lombok': [{ name: 'lombok', version: '1.18.46' }],
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.79' }],
-    'plugin-dcg': [{ name: 'opencode-plugin-dcg', version: '0.2.0' }],
     'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.9.0' }],
     'plugin-opencode-planify-german': [{ name: 'opencode-planify-german', version: '0.3.2' }],
     'plugin-superpowers': [{ name: 'superpowers', version: '6.3.0' }],

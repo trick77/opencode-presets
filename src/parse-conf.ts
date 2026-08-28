@@ -270,7 +270,7 @@ function parseRequiresBin(value: string, filePath: string, line: number): Requir
   const bin = (sep === -1 ? value : value.slice(0, sep)).trim();
   const setup = sep === -1 ? '' : value.slice(sep + 1).trim();
   if (!bin) throw parseError(filePath, line, '@requires-bin needs an executable name');
-  // A name, resolved against PATH — not a path. Accepting "/opt/x/bin/dcg"
+  // A name, resolved against PATH — not a path. Accepting "/opt/x/bin/jq"
   // here would make the check pass on one machine and fail on the next.
   if (bin.includes('/') || bin.includes('\\') || /\s/.test(bin)) {
     throw parseError(filePath, line, `@requires-bin must be an executable name on PATH, not a path, got "${bin}"`);

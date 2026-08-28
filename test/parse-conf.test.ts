@@ -105,7 +105,7 @@ describe('parseConfString — @include', () => {
       ['// @fetch: https://x/y.jar -> {{cache}}/y.jar\n', /must not set @fetch/],
       ['// @prompt: url | text | where\n', /must not set @prompt/],
       ['// @pins: lombok 1.18.46\n', /must not set @pins/],
-      ['// @requires-bin: dcg\n', /must not set @requires-bin/],
+      ['// @requires-bin: shellcheck\n', /must not set @requires-bin/],
     ];
     for (const [directive, re] of cases) {
       assert.throws(() => parseConfString(bundleHeader + directive + '// @include: a\n'), re);
@@ -256,9 +256,9 @@ describe('parseConfString — @prompt', () => {
     assert.throws(() => parseConfString(src), /@prompt must be/);
   });
 
-  // The hint is a shell command; README's own dcg entry documents a
-  // curl-pipe installer. Splitting it into fields would reject it with a
-  // field-count error that never names the real cause.
+  // The hint is a shell command, and a curl-pipe installer is a normal shape
+  // for one. Splitting it into fields would reject it with a field-count
+  // error that never names the real cause.
   test('a setup hint keeps its own pipes', () => {
     const src = minimalHeader +
       '// @prompt: clone | dir | where | | curl -fsSL https://x/i.sh | bash -s -- --no-configure\n\n{}';
@@ -328,15 +328,15 @@ describe('parseConfString — @prompt', () => {
 
 describe('parseConfString — @requires-bin', () => {
   test('parses a binary name', () => {
-    const src = minimalHeader + '// @requires-bin: dcg\n\n{}';
+    const src = minimalHeader + '// @requires-bin: shellcheck\n\n{}';
     const { meta } = parseConfString(src);
-    assert.deepEqual(meta.requiresBin, [{ bin: 'dcg' }]);
+    assert.deepEqual(meta.requiresBin, [{ bin: 'shellcheck' }]);
   });
 
   test('is repeatable', () => {
-    const src = minimalHeader + '// @requires-bin: dcg\n// @requires-bin: jq\n\n{}';
+    const src = minimalHeader + '// @requires-bin: shellcheck\n// @requires-bin: jq\n\n{}';
     const { meta } = parseConfString(src);
-    assert.deepEqual(meta.requiresBin, [{ bin: 'dcg' }, { bin: 'jq' }]);
+    assert.deepEqual(meta.requiresBin, [{ bin: 'shellcheck' }, { bin: 'jq' }]);
   });
 
   test('defaults to empty', () => {
@@ -349,15 +349,15 @@ describe('parseConfString — @requires-bin', () => {
   // has to survive as something the user can paste.
   test('continues a setup hint across following comment lines', () => {
     const src = minimalHeader +
-      '// @requires-bin: dcg | brew install dicklesworthstone/tap/dcg\n' +
+      '// @requires-bin: shellcheck | brew install shellcheck\n' +
       '//   # or:\n' +
-      "//   nix-shell -p cargo rustc --run 'cargo install destructive_command_guard'\n" +
+      "//   nix-shell -p cabal-install --run 'cabal install ShellCheck'\n" +
       '\n{}';
     const { meta } = parseConfString(src);
     assert.deepEqual(meta.requiresBin, [{
-      bin: 'dcg',
-      setup: 'brew install dicklesworthstone/tap/dcg\n# or:\n' +
-        "nix-shell -p cargo rustc --run 'cargo install destructive_command_guard'",
+      bin: 'shellcheck',
+      setup: 'brew install shellcheck\n# or:\n' +
+        "nix-shell -p cabal-install --run 'cabal install ShellCheck'",
     }]);
   });
 
@@ -365,12 +365,12 @@ describe('parseConfString — @requires-bin', () => {
   // binary name alone, with no trailing pipe to leave dangling.
   test('starts a setup hint on a continuation line', () => {
     const src = minimalHeader +
-      '// @requires-bin: dcg\n' +
-      '//   brew install dicklesworthstone/tap/dcg\n' +
+      '// @requires-bin: shellcheck\n' +
+      '//   brew install shellcheck\n' +
       '\n{}';
     const { meta } = parseConfString(src);
     assert.deepEqual(meta.requiresBin, [
-      { bin: 'dcg', setup: 'brew install dicklesworthstone/tap/dcg' },
+      { bin: 'shellcheck', setup: 'brew install shellcheck' },
     ]);
   });
 
@@ -378,13 +378,13 @@ describe('parseConfString — @requires-bin', () => {
   // above it, not to the first or to all of them.
   test('attaches a continuation to the most recent @requires-bin', () => {
     const src = minimalHeader +
-      '// @requires-bin: dcg\n' +
+      '// @requires-bin: shellcheck\n' +
       '// @requires-bin: jq\n' +
       '//   brew install jq\n' +
       '\n{}';
     const { meta } = parseConfString(src);
     assert.deepEqual(meta.requiresBin, [
-      { bin: 'dcg' },
+      { bin: 'shellcheck' },
       { bin: 'jq', setup: 'brew install jq' },
     ]);
   });
@@ -392,7 +392,7 @@ describe('parseConfString — @requires-bin', () => {
   // A path would make the check pass on the author's machine and fail on
   // everyone else's; the whole point is a name resolved against PATH.
   test('rejects a path rather than a name', () => {
-    for (const bad of ['/usr/local/bin/dcg', './dcg', 'bin/dcg']) {
+    for (const bad of ['/usr/local/bin/shellcheck', './shellcheck', 'bin/shellcheck']) {
       assert.throws(
         () => parseConfString(minimalHeader + `// @requires-bin: ${bad}\n\n{}`),
         /must be an executable name on PATH/,
