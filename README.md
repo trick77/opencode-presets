@@ -48,14 +48,14 @@ something outside your opencode config say so in their description.
 | `permissions-build-tools` | Permissions | merge | Not in the bundle. Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |
 | `permissions-cluster-info` | Permissions | merge | Not in the bundle. Read-only `oc` (OpenShift) inspection — grants read access to whichever cluster you are logged into |
 | `permissions-webfetch-ask` | Permissions | merge | Not in the bundle. Requires approval before opencode uses the webfetch tool |
-| `jdtls-lombok` | LSP | replace | Needs `jdtls` and a JDK 21+ on `PATH` already. Makes jdtls lombok-aware via a `-javaagent` flag (pins lombok 1.18.46, sha256-verified) |
+| `jdtls-lombok` | LSP | replace | Needs `jdtls` and a JDK 21+ on `PATH` already. Makes jdtls lombok-aware via a `-javaagent` flag (pins lombok 1.18.48, sha256-verified) |
 | `jdtls-clean-workspace` | LSP | replace | Stops jdtls from writing `.project`/`.classpath`/etc. into your project root |
 | `mcp-http` | MCP | replace | Add an HTTP MCP server (localhost or remote) with one custom header (prompts for id, URL, header name, header value) |
 | `mcp-http-noauth` | MCP | replace | Add an HTTP MCP server (localhost or remote) without auth headers (prompts for id, URL) |
 | `mcp-intellij` | MCP | replace | Requires the official "MCP Server" plugin installed and enabled in the IDE first — this preset does not install it. Adds the JetBrains IDE MCP server (loopback HTTP, default port 64342) |
 | `mcp-litellm` | MCP | replace | Add a LiteLLM proxy's MCP gateway as a remote MCP server (prompts for gateway URL and LiteLLM key; auth via `x-litellm-api-key`, no login flow) |
 | `mcp-litellm-passthrough` | MCP | replace | Install `mcp-litellm` first — re-running it replaces `mcp.litellm` and drops these headers. Adds one `x-mcp-<alias>-<header>` passthrough header to the `mcp.litellm` server so an upstream MCP server authenticates as you (run once per header) |
-| `mcp-playwright` | MCP | replace | Add the Playwright MCP server (local stdio via npx; pins `@playwright/mcp` 0.0.79) |
+| `mcp-playwright` | MCP | replace | Add the Playwright MCP server (local stdio via npx; pins `@playwright/mcp` 0.0.80) |
 | `mcp-vscode` | MCP | replace | Requires the `JuehangQin.vscode-mcp-server` extension installed, enabled and toggled active in VS Code first — this preset does not install it. Adds the VS Code MCP server via that extension (loopback HTTP, default port 3000) |
 | `plugin-litellm-pricing` | Plugin | append | Install `provider-litellm` too — without a `litellm` provider pointing at your proxy the plugin does nothing. Adds `opencode-plugin-litellm-pricing`: discovers a LiteLLM proxy's models at runtime and adds them to the picker with the proxy's own per-model pricing instead of `$0` (pins `opencode-plugin-litellm-pricing` 0.9.0) |
 | `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL and key for `plugin-litellm-pricing`, which prices the models against that same proxy (prompts for base URL and API key; no models list) |
@@ -404,7 +404,7 @@ the install confirmation and in `list -l`, so you can see what a preset
 drags in before saying yes:
 
 ```jsonc
-// @pins: @playwright/mcp 0.0.79
+// @pins: @playwright/mcp 0.0.80
 ```
 
 The version string must also appear in the body or `@fetch` line it
