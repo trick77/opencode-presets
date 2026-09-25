@@ -47,3 +47,6 @@ Desktop.ini
 .goose/
 .specstory/
 .bolt/
+
+# Local git worktrees
+.agents/worktrees/
