@@ -181,9 +181,11 @@ opencode-presets reset mcp.openrag-tom
 
 ### Pricing a LiteLLM proxy
 
-Pricing takes no configuration of its own. `plugin-litellm-pricing` reads each
-model's cost, limits and capabilities from the proxy `provider-litellm` already
-points at, so the base URL and key are the whole setup. The numbers are
+Install the `litellm-pricing` bundle. Pricing takes no configuration of its
+own: its plugin part (`plugin-litellm-pricing`) reads each model's cost, limits
+and capabilities from the proxy its provider part (`provider-litellm`) points
+at, so the base URL and key are the whole setup. Both parts only show in
+`list --all`, but install by name. The numbers are
 LiteLLM's own resolved ones, your config-level `model_info` overrides included,
 so what opencode displays is what the gateway bills. A model the proxy reports
 no cost for is injected without a `cost` block rather than with a wrong one, and
