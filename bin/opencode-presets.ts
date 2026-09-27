@@ -81,9 +81,10 @@ async function main(): Promise<void> {
   if (sub === 'list') {
     const rest = argv.slice(1);
     const long = rest.includes('-l') || rest.includes('--long');
-    const positional = rest.filter(a => a !== '-l' && a !== '--long');
+    const all = rest.includes('-a') || rest.includes('--all');
+    const positional = rest.filter(a => a !== '-l' && a !== '--long' && a !== '-a' && a !== '--all');
     const dirs = positional[0] ? [resolve(positional[0])] : DEFAULT_PRESET_DIRS;
-    await listConfs(dirs, { long, repoRoot: REPO_ROOT });
+    await listConfs(dirs, { long, all, repoRoot: REPO_ROOT });
     return;
   }
 
@@ -426,7 +427,8 @@ async function loadJsonOrNull(path: string): Promise<Record<string, unknown> | n
 
 function printUsage(): void {
   console.log('Usage:');
-  console.log('  opencode-presets list [<dir>] [--long]            list available .conf presets');
+  console.log('  opencode-presets list [<dir>] [--long] [--all]    list available .conf presets');
+  console.log('                                                   (--all includes bundle parts)');
   console.log('  opencode-presets install [--reset <path>]... [--set NAME=VALUE]... <conf>...');
   console.log('                                                   apply one or more presets');
   console.log('                                                   (with optional pre-resets;');

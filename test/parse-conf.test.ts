@@ -122,6 +122,26 @@ describe('parseConfString — @include', () => {
   });
 });
 
+describe('parseConfString — @part-of', () => {
+  test('records the bundle a preset belongs to', () => {
+    const src = minimalHeader + '// @part-of: pack\n\n{}';
+    assert.equal(parseConfString(src).meta.partOf, 'pack');
+  });
+
+  test('defaults to empty', () => {
+    assert.equal(parseConfString(minimalHeader + '\n{}').meta.partOf, '');
+  });
+
+  test('rejects an empty @part-of', () => {
+    assert.throws(() => parseConfString(minimalHeader + '// @part-of:\n\n{}'), /@part-of needs/);
+  });
+
+  test('rejects @part-of on a bundle', () => {
+    const src = '// @name: pack\n// @description: d\n// @author: a\n// @version: 0.1.0\n// @part-of: other\n// @include: a\n';
+    assert.throws(() => parseConfString(src), /must not set @part-of/);
+  });
+});
+
 describe('parseConfString — @pins', () => {
   test('parses a scoped package name and version', () => {
     const src = minimalHeader + '// @pins: @playwright/mcp 0.0.78\n\n{}';

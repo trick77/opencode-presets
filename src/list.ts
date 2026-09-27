@@ -15,9 +15,11 @@ interface Row {
   source: string;
   error?: string;
   shadowed?: boolean;
+  partOf: string;
+  includes: string[];
 }
 
-export async function listConfs(dirs: string[], { long = false, repoRoot }: { long?: boolean; repoRoot: string }): Promise<void> {
+export async function listConfs(dirs: string[], { long = false, all = false, repoRoot }: { long?: boolean; all?: boolean; repoRoot: string }): Promise<void> {
   const allRows: Row[] = [];
   let anyExists = false;
 
@@ -54,6 +56,8 @@ export async function listConfs(dirs: string[], { long = false, repoRoot }: { lo
           pins: meta.pins,
           file: f,
           source: dir,
+          partOf: meta.partOf,
+          includes: meta.includes,
         });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -67,6 +71,8 @@ export async function listConfs(dirs: string[], { long = false, repoRoot }: { lo
           pins: [],
           file: f,
           source: dir,
+          partOf: '',
+          includes: [],
           error: msg.replace(f + ':', '').trim(),
         });
       }
@@ -90,7 +96,23 @@ export async function listConfs(dirs: string[], { long = false, repoRoot }: { lo
 
   allRows.sort((a, b) => a.name.localeCompare(b.name) || (a.shadowed ? 1 : -1));
 
-  printTable(allRows, dirs, long, repoRoot);
+  // A bundle part is inert on its own; listing it next to its bundle reads as
+  // a separate feature. The bundle row already names its members. Decided on
+  // the winning row per name, and only when that bundle is listed and really
+  // includes the part — a typo in @part-of must not make a preset vanish.
+  const winners = new Map(allRows.filter(r => r.ok && !r.shadowed).map(r => [r.name, r]));
+  const hiddenNames = new Set<string>();
+  for (const r of winners.values()) {
+    if (r.partOf && winners.get(r.partOf)?.includes.includes(r.name)) hiddenNames.add(r.name);
+  }
+  const rows = all ? allRows : allRows.filter(r => !hiddenNames.has(r.name));
+  printTable(rows, dirs, long, repoRoot);
+
+  const hidden = hiddenNames.size;
+  if (!all && hidden > 0) {
+    console.log('');
+    console.log(c.dim(`(${hidden} bundle part${hidden === 1 ? '' : 's'} hidden — list --all shows them)`));
+  }
 }
 
 function printTable(rows: Row[], dirs: string[], long: boolean, repoRoot: string): void {
@@ -124,6 +146,7 @@ function printTable(rows: Row[], dirs: string[], long: boolean, repoRoot: string
 
     if (!r.ok)         line = c.err(line) + '  ' + c.err('! ' + r.error);
     else if (r.shadowed) line += c.dim('  (shadowed by earlier dir)');
+    if (r.ok && r.partOf) line += c.dim(`  (part of ${r.partOf})`);
     console.log(line);
 
     if (long && r.ok && r.description) {

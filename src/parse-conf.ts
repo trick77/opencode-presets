@@ -56,6 +56,9 @@ export interface ConfMeta {
   // @include is a bundle: a pure list, with no @path and no body of its own,
   // so it can never apply anything itself. See expand-includes.ts.
   includes: string[];
+  // Bundle this preset is a part of: inert on its own, so `list` hides it
+  // unless --all. Still installable by name.
+  partOf: string;
 }
 
 export interface ParsedConf {
@@ -86,6 +89,7 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
     pins: [],
     requiresBin: [],
     includes: [],
+    partOf: '',
   };
 
   let i = 0;
@@ -139,6 +143,10 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
           if (!value) throw parseError(filePath, i + 1, '@include needs a preset name or path');
           meta.includes.push(value);
           break;
+        case 'part-of':
+          if (!value) throw parseError(filePath, i + 1, '@part-of needs the name of the bundle that includes this preset');
+          meta.partOf = value;
+          break;
         default:
           throw parseError(filePath, i + 1, `unknown header key @${key}`);
       }
@@ -181,6 +189,9 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
       if (present) {
         throw parseError(filePath, 1, `@include presets must not set @${key} — put it on the preset that uses it`);
       }
+    }
+    if (meta.partOf) {
+      throw parseError(filePath, 1, '@include presets must not set @part-of — only a preset with a body can be part of a bundle');
     }
     for (const k of REQUIRED) {
       if (k === 'path') continue;

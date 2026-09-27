@@ -19,6 +19,7 @@ function mod(name: string, prompts: string[]): BatchModule {
     pins: [],
     requiresBin: [],
     includes: [],
+    partOf: '',
   };
   return { confPath: `${name}.conf`, meta, body: {} };
 }
