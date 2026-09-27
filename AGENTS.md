@@ -43,6 +43,9 @@ Order irrelevant.
   the check. `setup` = install command, mandatory (tested). Use when the preset
   is inert without it.
 - `@include: <name|path>` — repeatable. Makes the module a **bundle**.
+- `@part-of: <bundle>` — preset inert alone. `list` hides it unless `--all`;
+  install/remove by name still work. Bundle must `@include` it (tested).
+  Not for members useful alone (`permissions-*`).
 
 ## Bundles (`@include`)
 

@@ -331,6 +331,24 @@ test('every @include in a shipped preset points at another shipped preset', asyn
   }
 });
 
+// @part-of hides a preset from `list`; if the bundle does not actually include
+// it, the preset vanishes from every listing a user reads.
+test('every @part-of names a shipped bundle that @includes the preset', async () => {
+  const files = await shippedPresets();
+  const metas = await Promise.all(files.map(async (f) => (await parseConf(f)).meta));
+  const byName = new Map(metas.map((m) => [m.name, m]));
+
+  for (const meta of metas) {
+    if (!meta.partOf) continue;
+    const bundle = byName.get(meta.partOf);
+    assert.ok(bundle, `${meta.name}: @part-of ${JSON.stringify(meta.partOf)} does not name a shipped preset`);
+    assert.ok(
+      bundle.includes.includes(meta.name),
+      `${meta.name}: @part-of ${bundle.name}, but ${bundle.name} does not @include it`,
+    );
+  }
+});
+
 // opencode evaluates permission rules with last-match-wins, and `merge` appends
 // new keys at the end — so install order would silently decide the outcome of any
 // deny/allow pair that can match the same command string. Keeping every shipped

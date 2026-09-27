@@ -57,24 +57,20 @@ something outside your opencode config say so in their description.
 | `mcp-litellm-passthrough` | MCP | replace | Install `mcp-litellm` first — re-running it replaces `mcp.litellm` and drops these headers. Adds one `x-mcp-<alias>-<header>` passthrough header to the `mcp.litellm` server so an upstream MCP server authenticates as you (run once per header) |
 | `mcp-playwright` | MCP | replace | Add the Playwright MCP server (local stdio via npx; pins `@playwright/mcp` 0.0.80) |
 | `mcp-vscode` | MCP | replace | Requires the `JuehangQin.vscode-mcp-server` extension installed, enabled and toggled active in VS Code first — this preset does not install it. Adds the VS Code MCP server via that extension (loopback HTTP, default port 3000) |
-| `plugin-litellm-pricing` | Plugin | append | Install `provider-litellm` too — without a `litellm` provider pointing at your proxy the plugin does nothing. Adds `opencode-plugin-litellm-pricing`: discovers a LiteLLM proxy's models at runtime and adds them to the picker with the proxy's own per-model pricing instead of `$0` (pins `opencode-plugin-litellm-pricing` 0.9.0) |
-| `provider-litellm` | Provider | replace | Point the `litellm` provider at your proxy URL and key for `plugin-litellm-pricing`, which prices the models against that same proxy (prompts for base URL and API key; no models list) |
+| `litellm-pricing` | Provider | bundle | LiteLLM proxy models in the picker with the proxy's own per-model pricing instead of `$0`: points the `litellm` provider at your proxy (prompts for base URL and API key; no models list) and adds `opencode-plugin-litellm-pricing` (pins 0.9.0), which fills in the models at runtime |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v6.3.0`) |
 | `privacy-share-disabled` | Privacy | replace | In the bundle. Sets `share` to "disabled" so opencode never publishes a session, automatically or on command |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
-| `opencode-planify-german` | Bundle | — | The whole planify setup: `plugin-opencode-planify-german`, `instructions-opencode-planify-german`, `skill-opencode-planify-german`. Install all three or nothing happens — the rules name a tool that would not exist, the plugin would never be called |
-| `plugin-opencode-planify-german` | Plugin | append | Needs `instructions-opencode-planify-german` too, or nothing tells the agent to use the tool — install the `opencode-planify-german` bundle for both. Adds the `opencode-planify-german` plugin from `trick77/opencode-planify-german`, which registers the `plan_render` tool: takes a plan as JSON, validates it against a schema, renders a self-contained HTML file to `docs/plans/<TICKET>-<slug>.html` and opens it in the system's default browser (installs it from npm, pinned to `0.3.2`; restart opencode after installing — plugins are resolved at start) |
-| `instructions-opencode-planify-german` | Instructions | append | Needs `plugin-opencode-planify-german` — these rules name the `plan_render` tool it provides. Answer in German with Swiss orthography (never the eszett character, always `ss`; umlauts as real characters, never `ae`/`oe`/`ue`), German code comments with German domain nouns in identifiers, and every plan built as JSON and handed to `plan_render` instead of hand-written HTML or Markdown, with `<TICKET>` taken from the current branch name (fetches the rules file from `trick77/opencode-planify-german`, sha256-verified). Replaces the former `instructions-swiss-rules` |
-| `skill-opencode-planify-german` | Skill | append | Registers the `planify` skill — the plan JSON schema field by field, the writing rules per field, when a plan gets a diagram, and a complete example. Fetches the skill files from `trick77/opencode-planify-german` into the cache, sha256-verified, and appends that dir to `skills.paths`; no clone needed. Uninstall by deleting the one `skills.paths` entry by hand |
+| `opencode-planify-german` | Bundle | — | The whole planify setup, which does nothing in parts: the `opencode-planify-german` plugin from npm (pinned to `0.3.2`), registering a `plan_render` tool that validates a plan JSON against a schema and renders a self-contained HTML file to `docs/plans/<TICKET>-<slug>.html`; the rules file that makes opencode answer in German with Swiss orthography (never the eszett character, always `ss`) and send every plan through `plan_render`; and the `planify` skill documenting the plan schema. Rules file and skill are fetched sha256-verified. Restart opencode after installing — plugins are resolved at start |
 | `skill-diagram-design` | Skill | append | Needs a clone of the repo on disk first — `git clone https://github.com/cathrynlavery/diagram-design ~/src/diagram-design`. Registers the `diagram-design` skill (editorial diagram types as self-contained HTML + SVG) by appending your clone's `skills/` dir to `skills.paths`; answer with that clone's `skills/` dir (`--set skillsDir=/Users/you/src/diagram-design/skills`); the install refuses if the dir is not there. Tracks `main` — the repo ships no tags. One-way: `remove` cannot undo an append preset that prompts, so uninstall by deleting the one `skills.paths` entry by hand |
 | `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
 
 ### Bundles
 
 A preset whose header is `@include` lines is a **bundle**: a list of other
-presets, with no rules of its own. Two ship: `opencode-planify-german`, and
-`permissions-recommended`, which is all of this:
+presets, with no rules of its own. Three ship: `opencode-planify-german`,
+`litellm-pricing`, and `permissions-recommended`, which is all of this:
 
 ```
 permissions-recommended
@@ -123,6 +119,10 @@ Not in the bundle, on purpose:
 - `permissions-cluster-info` — read access to whichever cluster you are logged
   into, production included. Worth an explicit decision.
 - `permissions-webfetch-ask` — *adds* friction; wrong for a defaults bundle.
+
+The members of `opencode-planify-german` and `litellm-pricing` do nothing on
+their own, so they are marked `@part-of` their bundle and `list` hides them;
+`list --all` shows them. They still install and remove by name.
 
 ### About the `deny` presets
 
@@ -202,6 +202,7 @@ clears the now-unused `options.catalogURL` out of your config.
 
 ```sh
 opencode-presets list                              # what's available
+opencode-presets list --all                        # plus presets that only work in a bundle
 opencode-presets install jdtls-lombok             # apply one preset by name
 opencode-presets install jdtls-lombok permissions-git-safe
 opencode-presets remove jdtls-lombok              # undo a preset
@@ -396,6 +397,10 @@ error: mcp-example requires "jq" on PATH.
   brew install jq
   then run this again — nothing was written.
 ```
+
+`@part-of: <bundle>` marks a preset that does nothing without its siblings.
+`list` hides it unless `--all`; install and remove by name still work. Only
+on a preset with a body, never on a bundle.
 
 `@pins: <name> <version>` records a third-party artifact the preset
 installs at an exact version — the npm package behind an `mcp` command,
