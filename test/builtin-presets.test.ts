@@ -198,10 +198,10 @@ test('ships a litellm passthrough-header preset that writes a single header valu
 test('records the pinned third-party version of every preset that installs one', async () => {
   const expected: Record<string, Array<{ name: string; version: string }>> = {
     'jdtls-lombok': [{ name: 'lombok', version: '1.18.48' }],
-    'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.80' }],
+    'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.82' }],
     'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.9.0' }],
     'plugin-opencode-planify-german': [{ name: 'opencode-planify-german', version: '0.3.2' }],
-    'plugin-superpowers': [{ name: 'superpowers', version: '6.3.0' }],
+    'plugin-superpowers': [{ name: 'superpowers', version: '6.4.2' }],
   };
 
   for (const [name, pins] of Object.entries(expected)) {
