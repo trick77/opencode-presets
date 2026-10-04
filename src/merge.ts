@@ -70,7 +70,11 @@ export function applyAtPath(
 // append behaviour: a `{{cache}}` fetch destination, a prompted directory, or a
 // git URL carrying credentials (`git+https://user@host/…`), whose trailing `@`
 // would otherwise split in the wrong place.
+// opencode also accepts `[name@spec, {options}]` for a plugin with options; the
+// spec inside names the same package, so a tuple and a plain string supersede
+// each other in both directions.
 function specName(value: Json): string | null {
+  if (Array.isArray(value) && value.length === 2 && isPlainObject(value[1])) return specName(value[0]);
   if (typeof value !== 'string') return null;
   const at = value.lastIndexOf('@');
   // at === 0 is a bare scope (`@scope/pkg`), which names no version.
