@@ -82,6 +82,7 @@ Substitutions in body and `@path`: `{{cache}}`, `{{prompt:<name>}}`.
 entries and opencode loads the plugin twice. An incoming `name@spec` entry
 therefore replaces every existing entry with the same package name, in place
 (`specName` in `src/merge.ts`), and stacked configs collapse on next install.
+`[name@spec, {options}]` tuples count as the same package as the plain string.
 Non-`name@spec` entries (`{{cache}}` fetch dests, prompted dirs, git URLs with
 credentials) stay plain append — a heuristic there would delete unrelated
 entries. `remove` is untouched: it still deletes only exact matches.

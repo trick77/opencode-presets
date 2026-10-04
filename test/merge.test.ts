@@ -149,6 +149,32 @@ describe('applyAtPath — append mode', () => {
     assert.deepEqual((git.next as any).plugin, ['superpowers@git+https://github.com/obra/superpowers.git#v6.4.0']);
   });
 
+  // `[name@spec, {options}]` is the same package as the plain string, so
+  // switching between a preset with plugin options and one without must not
+  // leave the plugin loading twice.
+  test('a plugin tuple with options and a plain spec supersede each other', () => {
+    const toTuple = applyAtPath(
+      { plugin: ['superpowers@6.3.0', 'pricing@0.8.1'] },
+      'plugin',
+      [['pricing@0.9.0', { token: 't' }]],
+      'append'
+    );
+    assert.deepEqual((toTuple.next as any).plugin, ['superpowers@6.3.0', ['pricing@0.9.0', { token: 't' }]]);
+    assert.equal(toTuple.stats.superseded, 1);
+
+    const toPlain = applyAtPath({ plugin: [['pricing@0.9.0', { token: 't' }]] }, 'plugin', ['pricing@0.9.0'], 'append');
+    assert.deepEqual((toPlain.next as any).plugin, ['pricing@0.9.0']);
+    assert.equal(toPlain.stats.superseded, 1);
+  });
+
+  test('a plugin tuple with changed options replaces the old tuple', () => {
+    const root = { plugin: [['pricing@0.9.0', { token: 'old' }]] };
+    const { next, stats } = applyAtPath(root, 'plugin', [['pricing@0.9.0', { token: 'new' }]], 'append');
+    assert.deepEqual((next as any).plugin, [['pricing@0.9.0', { token: 'new' }]]);
+    assert.equal(stats.added, 0);
+    assert.equal(stats.superseded, 1);
+  });
+
   // Only `name@spec` entries carry a package identity. A fetched skill path or
   // a prompted directory must keep the plain additive behaviour, or unrelated
   // entries sharing a prefix would silently delete each other.
