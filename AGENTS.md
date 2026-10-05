@@ -83,9 +83,12 @@ entries and opencode loads the plugin twice. An incoming `name@spec` entry
 therefore replaces every existing entry with the same package name, in place
 (`specName` in `src/merge.ts`), and stacked configs collapse on next install.
 `[name@spec, {options}]` tuples count as the same package as the plain string.
-Non-`name@spec` entries (`{{cache}}` fetch dests, prompted dirs, git URLs with
-credentials) stay plain append — a heuristic there would delete unrelated
-entries. `remove` is untouched: it still deletes only exact matches.
+Versioned `{{cache}}` fetch dests supersede too: same path with the `X.Y.Z`
+token blanked = same entry (`cacheFamily`). Only under the cache dir — we own
+it. Prompted dirs, hand-added paths, git URLs with credentials stay plain
+append — a heuristic there would delete unrelated entries. Renaming a dest
+family (`planify-*` → `opencode-planify-german-*`) still stacks once.
+`remove` is untouched: it still deletes only exact matches.
 
 ## Merge stays additive
 
