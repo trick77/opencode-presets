@@ -11,7 +11,10 @@
 //                       and missing incoming entries are appended. Idempotent.
 //                       An incoming `name@spec` entry supersedes every existing
 //                       entry naming the same package, rather than stacking a
-//                       second version of it alongside the first.
+//                       second version of it alongside the first. Same for a
+//                       versioned path under the cache dir (a `@fetch` dest).
+
+import { sep } from 'node:path';
 
 export type MergeMode = 'replace' | 'merge' | 'merge-overwrite' | 'append';
 
@@ -38,14 +41,15 @@ export function applyAtPath(
   root: Json,
   dottedPath: string,
   value: Json,
-  mode: MergeMode = 'replace'
+  mode: MergeMode = 'replace',
+  opts: { cacheDir?: string } = {}
 ): { next: JsonObject; stats: ApplyStats } {
   const segments = parsePath(dottedPath);
   const next: JsonObject =
     root === undefined || root === null ? {} : (structuredClone(root) as JsonObject);
 
   if (segments.length === 0) {
-    const { value: merged, stats } = combine(next, value, mode);
+    const { value: merged, stats } = combine(next, value, mode, opts.cacheDir);
     return { next: merged as JsonObject, stats };
   }
 
@@ -57,7 +61,7 @@ export function applyAtPath(
   }
   const last = segments[segments.length - 1];
 
-  const { value: combined, stats } = combine(cursor[last], value, mode);
+  const { value: combined, stats } = combine(cursor[last], value, mode, opts.cacheDir);
   cursor[last] = combined;
   return { next, stats };
 }
@@ -66,9 +70,9 @@ export function applyAtPath(
 // `@scope/pkg@1.2.3`, `superpowers@git+https://…#v6.3.0`. opencode loads every
 // entry in the array, so two specs naming the same package load that plugin
 // twice at two versions; append mode uses this to supersede instead of stack.
-// Anything that is not a `name@spec` string returns null and keeps the plain
-// append behaviour: a `{{cache}}` fetch destination, a prompted directory, or a
-// git URL carrying credentials (`git+https://user@host/…`), whose trailing `@`
+// Anything that is not a `name@spec` string returns null: a `{{cache}}` fetch
+// destination (see cacheFamily), a prompted directory, or a git URL carrying
+// credentials (`git+https://user@host/…`), whose trailing `@`
 // would otherwise split in the wrong place.
 // opencode also accepts `[name@spec, {options}]` for a plugin with options; the
 // spec inside names the same package, so a tuple and a plain string supersede
@@ -84,7 +88,43 @@ function specName(value: Json): string | null {
   return name;
 }
 
-function combine(existing: Json, incoming: Json, mode: MergeMode): { value: Json; stats: ApplyStats } {
+// The family of a versioned `@fetch` destination: `<cache>/pkg-rules-0.4.0.md`
+// and `<cache>/pkg-rules-0.3.2.md` share one. AGENTS.md mandates a versioned
+// dest filename, so without this every preset bump stacks another
+// `instructions` or `skills.paths` entry and opencode loads both. Only paths
+// under the cache dir qualify: opencode-presets owns it, so the version
+// heuristic cannot reach a prompted directory or a hand-added path that merely
+// looks versioned.
+// The pre-release suffix is limited to known tags: a generic `-[\w.]+` would eat
+// the extension (`-0.5.0-rc.1.md` vs `-0.4.0.md` stop matching) and fold
+// `tool-1.0.0-linux.tar` and `tool-1.0.0-darwin.tar` into one family.
+const VERSION_TOKEN = /\d+\.\d+\.\d+(?:-(?:alpha|beta|rc|pre|next|dev)(?:\.?\d+)?)?/;
+
+function cacheFamily(value: Json, cacheDir: string | undefined): string | null {
+  if (!cacheDir || typeof value !== 'string') return null;
+  const root = cacheDir.endsWith(sep) || cacheDir.endsWith('/') ? cacheDir.slice(0, -1) : cacheDir;
+  // `{{cache}}/x` is expanded by plain substitution, so on Windows the
+  // separator after the cache dir is `/`, not `sep`.
+  if (!value.startsWith(root) || (value[root.length] !== '/' && value[root.length] !== sep)) return null;
+  const tail = value.slice(root.length + 1);
+  if (!VERSION_TOKEN.test(tail)) return null;
+  return root + '/' + tail.replace(VERSION_TOKEN, '<version>');
+}
+
+// Entries sharing an identity are versions of one thing; append keeps one.
+function identity(value: Json, cacheDir: string | undefined): string | null {
+  const pkg = specName(value);
+  if (pkg !== null) return 'pkg:' + pkg;
+  const family = cacheFamily(value, cacheDir);
+  return family === null ? null : 'cache:' + family;
+}
+
+function combine(
+  existing: Json,
+  incoming: Json,
+  mode: MergeMode,
+  cacheDir?: string
+): { value: Json; stats: ApplyStats } {
   const stats: ApplyStats = { mode, added: 0, preserved: 0, overwritten: 0, superseded: 0, replaced: false };
 
   if (mode === 'append') {
@@ -96,13 +136,13 @@ function combine(existing: Json, incoming: Json, mode: MergeMode): { value: Json
     }
     const target: Json[] = Array.isArray(existing) ? [...existing] : [];
     for (const v of incoming) {
-      const name = specName(v);
+      const name = identity(v, cacheDir);
       // The first entry naming the same package anchors the position. Look it
       // up before the deep-equality check: a config holding both `pkg@0.8.1`
       // and `pkg@0.9.0` must still collapse when `pkg@0.9.0` is installed, and
       // an equality-first check would call that a preserved no-op and leave the
       // stale entry behind.
-      const at = name === null ? -1 : target.findIndex(existingValue => specName(existingValue) === name);
+      const at = name === null ? -1 : target.findIndex(existingValue => identity(existingValue, cacheDir) === name);
       if (at === -1) {
         if (target.some(existingValue => deepEqual(existingValue, v))) {
           stats.preserved++;
@@ -122,7 +162,7 @@ function combine(existing: Json, incoming: Json, mode: MergeMode): { value: Json
         stats.superseded++;
       }
       for (let i = target.length - 1; i > at; i--) {
-        if (specName(target[i]) === name) {
+        if (identity(target[i], cacheDir) === name) {
           target.splice(i, 1);
           stats.superseded++;
         }

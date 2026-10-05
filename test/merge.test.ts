@@ -1,5 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { join, sep } from 'node:path';
 import { applyAtPath, removeAtPath, getAtPath } from '../src/merge.js';
 
 describe('applyAtPath — replace mode', () => {
@@ -175,15 +176,89 @@ describe('applyAtPath — append mode', () => {
     assert.equal(stats.superseded, 1);
   });
 
-  // Only `name@spec` entries carry a package identity. A fetched skill path or
-  // a prompted directory must keep the plain additive behaviour, or unrelated
-  // entries sharing a prefix would silently delete each other.
-  test('leaves non-package entries to plain append', () => {
-    const root = { skill: ['{{cache}}/planify-skills-0.3.2'] };
-    const { next, stats } = applyAtPath(root, 'skill', ['{{cache}}/planify-skills-0.4.0'], 'append');
-    assert.deepEqual((next as any).skill, ['{{cache}}/planify-skills-0.3.2', '{{cache}}/planify-skills-0.4.0']);
-    assert.equal(stats.added, 1);
-    assert.equal(stats.superseded, 0);
+  // A versioned `@fetch` dest is a new path on every bump; opencode loads every
+  // `instructions` and `skills.paths` entry, so the old one must go.
+  describe('versioned cache paths', () => {
+    const cacheDir = join(sep, 'home', 'u', '.cache', 'opencode-presets');
+    const at = (p: string) => join(cacheDir, p);
+    const opts = { cacheDir };
+
+    test('supersede an older version in place', () => {
+      const root = { skills: { paths: ['/home/u/diagram-design', at('planify-skills-0.3.2')] } };
+      const { next, stats } = applyAtPath(root, 'skills.paths', [at('planify-skills-0.4.0')], 'append', opts);
+      assert.deepEqual((next as any).skills.paths, ['/home/u/diagram-design', at('planify-skills-0.4.0')]);
+      assert.equal(stats.added, 0);
+      assert.equal(stats.superseded, 1);
+    });
+
+    test('collapse a config that already stacked several versions', () => {
+      const root = { instructions: [at('planify-rules-0.3.1.md'), '/x/AGENTS.md', at('planify-rules-0.3.2.md')] };
+      const { next } = applyAtPath(root, 'instructions', [at('planify-rules-0.4.0.md')], 'append', opts);
+      assert.deepEqual((next as any).instructions, [at('planify-rules-0.4.0.md'), '/x/AGENTS.md']);
+    });
+
+    test('reinstalling the same version stays a preserved no-op', () => {
+      const root = { instructions: [at('planify-rules-0.4.0.md')] };
+      const { next, stats } = applyAtPath(root, 'instructions', [at('planify-rules-0.4.0.md')], 'append', opts);
+      assert.deepEqual((next as any).instructions, [at('planify-rules-0.4.0.md')]);
+      assert.equal(stats.preserved, 1);
+      assert.equal(stats.superseded, 0);
+    });
+
+    test('different families in the cache dir do not touch each other', () => {
+      const root = { p: [at('planify-rules-0.4.0.md')] };
+      const { next } = applyAtPath(root, 'p', [at('planify-skills-0.4.0')], 'append', opts);
+      assert.deepEqual((next as any).p, [at('planify-rules-0.4.0.md'), at('planify-skills-0.4.0')]);
+    });
+
+    // Outside the cache dir a path is the user's (a prompted dir, a hand-added
+    // entry); a version-looking name there is no evidence it is ours to delete.
+    test('leave versioned paths outside the cache dir to plain append', () => {
+      const root = { p: ['/home/u/tools-1.0.0'] };
+      const { next, stats } = applyAtPath(root, 'p', ['/home/u/tools-2.0.0'], 'append', opts);
+      assert.deepEqual((next as any).p, ['/home/u/tools-1.0.0', '/home/u/tools-2.0.0']);
+      assert.equal(stats.superseded, 0);
+    });
+
+    test('leave unversioned cache paths to plain append', () => {
+      const root = { p: [at('rules-a.md')] };
+      const { next } = applyAtPath(root, 'p', [at('rules-b.md')], 'append', opts);
+      assert.deepEqual((next as any).p, [at('rules-a.md'), at('rules-b.md')]);
+    });
+
+    test('a sibling dir sharing the cache dir as a name prefix is not the cache', () => {
+      const root = { p: [join(cacheDir + '-old', 'x-1.0.0')] };
+      const { next } = applyAtPath(root, 'p', [join(cacheDir + '-old', 'x-2.0.0')], 'append', opts);
+      assert.equal((next as any).p.length, 2);
+    });
+
+    test('a pre-release keeps the extension and supersedes both ways', () => {
+      const up = applyAtPath({ p: [at('rules-0.4.0.md')] }, 'p', [at('rules-0.5.0-rc.1.md')], 'append', opts);
+      assert.deepEqual((up.next as any).p, [at('rules-0.5.0-rc.1.md')]);
+      const down = applyAtPath(up.next, 'p', [at('rules-0.5.0.md')], 'append', opts);
+      assert.deepEqual((down.next as any).p, [at('rules-0.5.0.md')]);
+    });
+
+    test('same version, different platform suffix, are different entries', () => {
+      const root = { p: [at('tool-1.0.0-linux.tar')] };
+      const { next, stats } = applyAtPath(root, 'p', [at('tool-1.0.0-darwin.tar')], 'append', opts);
+      assert.deepEqual((next as any).p, [at('tool-1.0.0-linux.tar'), at('tool-1.0.0-darwin.tar')]);
+      assert.equal(stats.superseded, 0);
+    });
+
+    // `{{cache}}/x` is plain substitution, so the separator after the cache
+    // dir is always `/`, whatever the platform separator is.
+    test('a `/` after the cache dir matches regardless of platform', () => {
+      const root = { p: [cacheDir + '/rules-0.3.2.md'] };
+      const { next } = applyAtPath(root, 'p', [cacheDir + '/rules-0.4.0.md'], 'append', opts);
+      assert.deepEqual((next as any).p, [cacheDir + '/rules-0.4.0.md']);
+    });
+
+    test('without a cacheDir, paths keep plain append', () => {
+      const root = { p: [at('planify-skills-0.3.2')] };
+      const { next } = applyAtPath(root, 'p', [at('planify-skills-0.4.0')], 'append');
+      assert.equal((next as any).p.length, 2);
+    });
   });
 
   // `git+https://user@host/...` has a trailing `@` that does not split a

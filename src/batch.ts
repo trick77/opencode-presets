@@ -251,7 +251,7 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
       ? new Set(Object.keys(beforeThisModule))
       : new Set<string>();
 
-    const { next, stats } = applyAtPath(working, fullPath, fullBody, m.meta.mode);
+    const { next, stats } = applyAtPath(working, fullPath, fullBody, m.meta.mode, { cacheDir });
     working = next;
 
     let preservedBatch = 0;
