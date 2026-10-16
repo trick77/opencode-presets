@@ -200,7 +200,7 @@ test('records the pinned third-party version of every preset that installs one',
     'jdtls-lombok': [{ name: 'lombok', version: '1.18.48' }],
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.83' }],
     'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.9.0' }],
-    'plugin-opencode-planify-german': [{ name: 'opencode-planify-german', version: '0.5.0' }],
+    'plugin-opencode-planify-german': [{ name: 'opencode-planify-german', version: '0.6.0' }],
     'plugin-superpowers': [{ name: 'superpowers', version: '7.0.0' }],
   };
 
