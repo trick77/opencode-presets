@@ -112,7 +112,7 @@ function cacheFamily(value: Json, cacheDir: string | undefined): string | null {
 }
 
 // Entries sharing an identity are versions of one thing; append keeps one.
-function identity(value: Json, cacheDir: string | undefined): string | null {
+export function identity(value: Json, cacheDir: string | undefined): string | null {
   const pkg = specName(value);
   if (pkg !== null) return 'pkg:' + pkg;
   const family = cacheFamily(value, cacheDir);

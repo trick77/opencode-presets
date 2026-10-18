@@ -114,6 +114,46 @@ test('install reports existing schema errors before the user approves changes', 
   assert.deepEqual(JSON.parse(await readFile(opencodeConfig, 'utf8')), original);
 });
 
+test('install offers prompt answers already in the config; Enter keeps them', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'opencode-presets-reuse-prompts-'));
+  const cacheDir = join(dir, 'cache');
+  const opencodeConfig = join(dir, 'opencode.json');
+  const tuiConfig = join(dir, 'tui.json');
+  const preset = join(dir, 'plugin-x.conf');
+
+  await mkdir(cacheDir, { recursive: true });
+  await writeFile(join(cacheDir, 'schema.json'), JSON.stringify(minimalConfigSchema(), null, 2), 'utf8');
+  await writeFile(opencodeConfig, JSON.stringify({
+    '$schema': 'https://opencode.ai/config.json',
+    plugin: [['x-plugin@0.5.0', { url: 'https://bb.example.com', token: 's3cret' }]],
+  }, null, 2) + '\n', 'utf8');
+  await writeFile(preset, `// @name: plugin-x
+// @description: Test plugin with prompts.
+// @author: test
+// @version: 0.6.0
+// @path: plugin
+// @mode: append
+// @prompt: url | text | Base URL
+// @prompt: token | secret | Access token
+
+[["x-plugin@0.6.0", { "url": "{{prompt:url}}", "token": "{{prompt:token}}" }]]
+`, 'utf8');
+
+  const result = await runCli(['install', preset], {
+    OPENCODE_CONFIG: opencodeConfig,
+    OPENCODE_TUI_CONFIG: tuiConfig,
+    OPENCODE_PRESETS_CACHE: cacheDir,
+  }, 'y\n\n\n');
+
+  assert.equal(result.code, 0, result.stderr + result.stdout);
+  assert.match(result.stdout, /\[current: https:\/\/bb\.example\.com\]/);
+  assert.match(result.stdout, /\[Enter keeps current\]/);
+  assert.doesNotMatch(result.stdout + result.stderr, /s3cret/);
+  assert.deepEqual(JSON.parse(await readFile(opencodeConfig, 'utf8')).plugin, [
+    ['x-plugin@0.6.0', { url: 'https://bb.example.com', token: 's3cret' }],
+  ]);
+});
+
 test('validate checks config and tui targets', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'opencode-presets-validate-valid-'));
   const cacheDir = join(dir, 'cache');
