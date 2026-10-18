@@ -7,6 +7,7 @@ import { applyAtPath, removeAtPath, getAtPath } from './merge.js';
 import type { ApplyStats, RemoveStats, MergeMode } from './merge.js';
 import { fetchAsset } from './fetch-asset.js';
 import { checkDir, findOnPath, formatSetup } from './preconditions.js';
+import { recoverPromptValues } from './recover-prompts.js';
 import { backup } from './backup.js';
 import { c, confirm, promptText, promptSecret, describe, wrap } from './ui.js';
 import type { SetValue } from './cli-args.js';
@@ -155,18 +156,32 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
       console.log(c.bold(m.meta.name) + c.dim(' — inputs:'));
     }
     m.promptValues = { ...preset };
+    // What a previous install answered, read back from the config, so an
+    // upgrade is Enter per prompt instead of re-typing a URL and a token.
+    const current = recoverPromptValues(
+      existing,
+      expandCacheStr(m.meta.path, cacheDir),
+      expandCacheInValue(m.body, cacheDir),
+      m.meta.mode,
+      cacheDir
+    );
     for (const p of m.meta.prompts) {
       let val: string;
       if (p.name in preset) {
         val = preset[p.name];
       } else {
+        // A secret's current value is never echoed, only offered.
+        const hint = p.name in current
+          ? (p.type === 'secret' ? ' [Enter keeps current]' : ' [current: ' + current[p.name] + ']')
+          : (p.default !== undefined ? ' [default: ' + p.default + ']' : '');
         const label = '  ' + c.bold(p.name) +
           (p.help ? c.meta(' (' + p.help + ')') : '') +
-          (p.default !== undefined ? c.meta(' [default: ' + p.default + ']') : '') +
+          (hint ? c.meta(hint) : '') +
           ': ';
         const raw = p.type === 'secret' ? await promptSecret(label) : await promptText(label);
         val = raw;
       }
+      if (!val && p.name in current) val = current[p.name];
       if (!val) {
         if (p.default !== undefined) {
           val = p.default;

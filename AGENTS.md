@@ -31,6 +31,9 @@ Order irrelevant.
 - `@prompt: name | type | help | default | setup` — repeatable; type
   `text`/`secret`/`dir`. Help/default/setup optional; empty default field = no
   default. Default forbidden for `secret`. Empty input → default.
+  Answer already in the config (read back via body template,
+  `src/recover-prompts.ts`) beats the default: Enter keeps it, secret never
+  echoed. Ambiguous → not offered, never guessed.
   `dir` → value must be an existing dir; `~` expanded, relative rejected, install
   aborts if missing. Resolved absolute path is what gets written.
   `setup` = command that makes the dir exist. Mandatory on every `dir` prompt
