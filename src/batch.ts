@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 import { parseConf } from './parse-conf.js';
-import type { ConfMeta, ConfTarget, FetchDirective } from './parse-conf.js';
+import type { ConfMeta, FetchDirective } from './parse-conf.js';
 import { applyAtPath, removeAtPath, getAtPath } from './merge.js';
 import type { ApplyStats, RemoveStats, MergeMode } from './merge.js';
 import { fetchAsset } from './fetch-asset.js';
@@ -16,7 +16,6 @@ import type { ValidationResult } from './validate.js';
 import { printValidationIssue } from './validation-output.js';
 
 const SCHEMA_URL = 'https://opencode.ai/config.json';
-const TUI_SCHEMA_URL = 'https://opencode.ai/tui.json';
 const ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
 
 type Json = unknown;
@@ -53,18 +52,16 @@ export interface RunBatchOpts {
   resets: string[];
   confPaths: string[];
   setValues?: SetValue[];
-  targets?: Record<ConfTarget, string>;
-  schemas?: Record<ConfTarget, string>;
-  target?: string;
+  target: string;
+  schema?: string;
   cacheDir: string;
   backupDir: string;
 }
 
 export interface RunRemoveBatchOpts {
   confPaths: string[];
-  targets?: Record<ConfTarget, string>;
-  schemas?: Record<ConfTarget, string>;
-  target?: string;
+  target: string;
+  schema?: string;
   cacheDir: string;
   backupDir: string;
 }
@@ -122,11 +119,8 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
     }
   }
 
-  const targetName = resolveBatchTarget(modules, resets);
-  const targets = opts.targets ?? { config: opts.target!, tui: opts.target! };
-  const schemas = opts.schemas ?? { config: SCHEMA_URL, tui: TUI_SCHEMA_URL };
-  const target = targets[targetName];
-  const schemaUrl = schemas[targetName];
+  const target = opts.target;
+  const schemaUrl = opts.schema ?? SCHEMA_URL;
   const existing = await loadJsonOrNull(target);
   const baselineValidation = existing === null ? null : await validateAgainstSchema(existing, cacheDir, schemaUrl);
   const baselineValidationWarned = warnExistingValidationErrors(baselineValidation);
@@ -540,11 +534,8 @@ export async function runRemoveBatch(opts: RunRemoveBatchOpts): Promise<void> {
     modules.push({ meta, body, expandedBody });
   }
 
-  const targetName = resolveBatchTarget(modules, []);
-  const targets = opts.targets ?? { config: opts.target!, tui: opts.target! };
-  const schemas = opts.schemas ?? { config: SCHEMA_URL, tui: TUI_SCHEMA_URL };
-  const target = targets[targetName];
-  const schemaUrl = schemas[targetName];
+  const target = opts.target;
+  const schemaUrl = opts.schema ?? SCHEMA_URL;
   const existing = await loadJsonOrNull(target);
   if (existing === null) {
     console.log(c.dim('target file does not exist — nothing to remove.'));
@@ -608,18 +599,6 @@ export async function runRemoveBatch(opts: RunRemoveBatchOpts): Promise<void> {
 // Validate the would-be-new config against opencode's JSON schema.
 // On invalid, print the errors and abort BEFORE backup/write.
 // On schema-unavailable (offline + no cache), print a warning and proceed.
-function resolveBatchTarget(modules: Array<{ meta: ConfMeta }>, resets: string[]): ConfTarget {
-  const targets = new Set(modules.map(m => m.meta.target));
-  if (targets.size > 1) {
-    console.error(c.err('error: ') + 'cannot combine presets with different @target values in one operation.');
-    console.error(c.err('       ') + 'run separate commands for config and tui presets.');
-    process.exit(1);
-  }
-  if (targets.size === 1) return [...targets][0];
-  if (resets.length > 0) return 'config';
-  return 'config';
-}
-
 async function validateOrAbort(
   config: unknown,
   cacheDir: string,

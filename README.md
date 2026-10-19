@@ -218,7 +218,7 @@ opencode-presets install mcp-playwright permissions-git-safe
 opencode-presets remove mcp-playwright            # undo a preset
 opencode-presets install --reset permission ./presets/foo.conf  # wipe then install
 opencode-presets reset permission                 # wipe a section outright
-opencode-presets validate config                  # check opencode.json
+opencode-presets validate                         # check opencode.json
 ```
 
 Bare names are resolved through the preset search path (see "Where
@@ -229,10 +229,9 @@ Every change shows a diff and asks before touching anything. A
 backup is written to `~/.cache/opencode-presets/backups/` before
 each write — no auto-pruning, so they pile up.
 
-`validate config` checks the configured `opencode.json` against
+`validate` checks the configured `opencode.json` against
 OpenCode's current schema; invalid files print labeled `where`,
-`what`, and `detail` lines and exit nonzero. Plain `validate` also
-checks `tui.json`, which opencode 2 does not read.
+`what`, and `detail` lines and exit nonzero.
 
 ### Non-interactive prompt values (`--set` / `--set-env`)
 
@@ -354,9 +353,8 @@ an absolute path.
 { "key": "value" }
 ```
 
-`@target` is optional and defaults to `config`, which writes
-`opencode.json`. `@target: tui` writes `tui.json`, which opencode 2 does
-not read — don't use it.
+Presets write `opencode.json` only. `@target: tui` is rejected:
+opencode 2 does not read `tui.json`.
 
 `@fetch: <url> -> <dest> [sha256=hex]` downloads to the cache.
 `@prompt: name | text|secret|dir | help | default | setup` collects input

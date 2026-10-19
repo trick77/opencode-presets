@@ -83,7 +83,7 @@ function formatError(err: unknown): string {
 }
 
 async function loadSchema(cacheDir: string, schemaUrl: string): Promise<unknown> {
-  const cachePath = `${cacheDir}/${schemaCacheName(schemaUrl)}`;
+  const cachePath = `${cacheDir}/schema.json`;
   if (await fileExists(cachePath)) {
     try {
       const raw = await readFile(cachePath, 'utf8');
@@ -101,11 +101,6 @@ async function loadSchema(cacheDir: string, schemaUrl: string): Promise<unknown>
   await mkdir(dirname(cachePath), { recursive: true });
   await writeFile(cachePath, text, 'utf8');
   return parsed;
-}
-
-function schemaCacheName(schemaUrl: string): string {
-  if (schemaUrl.endsWith('/tui.json')) return 'tui-schema.json';
-  return 'schema.json';
 }
 
 async function fileExists(path: string): Promise<boolean> {
