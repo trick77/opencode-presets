@@ -161,8 +161,9 @@ Matcher is whole-line glob; `*` matches any chars.
 
 ## Naming and placement
 
-- `presets/<category>-*.conf`: `permissions-`, `mcp-`, `plugin-`, `skill-`,
-  `provider-`, `agent-`.
+- `presets/<category>-*.conf`, category = what it touches: `permissions-`,
+  `mcp-`, `plugin-`, `skill-`, `provider-`, `instructions-`, `agent-`. Bundles
+  are named for what they set up.
 - One concern per module; two unrelated paths → split.
 - `@path` deep enough that modules don't overlap — same path in `replace`
   collides.

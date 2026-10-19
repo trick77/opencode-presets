@@ -10,6 +10,12 @@ Presets write the 1.x key shapes (`permission`, `agent`, `mcp`, `plugin`,
 `provider`). opencode 2 still reads them and normalizes them in memory, and they
 match what an existing `opencode.json` already uses.
 
+**Upgrading from 0.32 or earlier:** `jdtls-lombok`, `jdtls-clean-workspace`,
+`privacy-share-disabled` and `tui-disable-mouse` are gone (opencode 2 has no LSP,
+no sharing, no `tui.json`), so `remove` no longer knows them. What they wrote is
+inert on opencode 2; to clear it: `opencode-presets reset lsp.jdtls` and
+`opencode-presets reset share`.
+
 ## Install
 
 ```sh
@@ -211,7 +217,7 @@ opencode-presets install mcp-playwright permissions-git-safe
 opencode-presets remove mcp-playwright            # undo a preset
 opencode-presets install --reset permission ./presets/foo.conf  # wipe then install
 opencode-presets reset permission                 # wipe a section outright
-opencode-presets validate                         # check opencode.json and tui.json
+opencode-presets validate                         # check opencode.json (and tui.json, 1.x)
 ```
 
 Bare names are resolved through the preset search path (see "Where
@@ -223,7 +229,8 @@ backup is written to `~/.cache/opencode-presets/backups/` before
 each write — no auto-pruning, so they pile up.
 
 `validate` checks the configured `opencode.json` and `tui.json`
-against OpenCode's current schemas. Use `validate config`,
+against OpenCode's current schemas; opencode 2 ignores `tui.json`, so
+`validate config` is the one that matters there. Use `validate config`,
 `validate tui`, or `validate all` to choose targets. Missing files
 are skipped in `all` mode; invalid files print labeled `where`,
 `what`, and `detail` lines and exit nonzero.

@@ -260,7 +260,7 @@ test('keeps shipped descriptions short enough to read at the install prompt', as
   }
 });
 
-test('ships a recommended bundle that expands to the read-only modules, then the denies', async () => {
+test('ships a recommended bundle that expands to allow, then ask, then deny modules', async () => {
   const dir = resolve(process.cwd(), 'presets');
   const { meta, body } = await parseConf(resolve(dir, 'permissions-recommended.conf'));
 
@@ -292,6 +292,11 @@ test('ships a recommended bundle that expands to the read-only modules, then the
   const lastAllow = actions.reduce((last, a, i) => (a.has('allow') ? i : last), -1);
   const firstDeny = actions.findIndex((a) => a.has('deny'));
   assert.ok(firstDeny > lastAllow, 'deny modules must expand after every allow module');
+  const asks = actions.flatMap((a, i) => (a.has('ask') ? [i] : []));
+  assert.ok(
+    asks.every((i) => i > lastAllow && i < firstDeny),
+    'ask modules must expand between the allows and the denies',
+  );
 
   // Nothing the bundle pulls in may execute project code — that would let
   // `python -c` route around the very deny rules the bundle installs.

@@ -99,7 +99,7 @@ for (const pin of pins) {
     const cmp = compareVersions(pin.version, latest);
     // A pin ahead of upstream is not good news — it means this source is not
     // authoritative for that artifact, so its "ok" verdicts are worthless too.
-    // Both sources tried for lombok before this one failed exactly that way.
+    // Both sources first tried for lombok (since dropped) failed exactly that way.
     const state = cmp < 0 ? 'BEHIND' : cmp > 0 ? 'AHEAD?' : 'ok';
     if (cmp !== 0) drifted = true;
     rows.push({ ...pin, latest, state });
