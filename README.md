@@ -6,9 +6,12 @@ Ready-made presets for OpenCode 2: permission rules, MCP servers, plugins,
 skills, agent limits. A small CLI merges them into your `opencode.json` so you
 never hand-edit the JSON.
 
-Presets write the 1.x key shapes (`permission`, `agent`, `mcp`, `plugin`,
-`provider`). opencode 2 still reads them and normalizes them in memory, and they
-match what an existing `opencode.json` already uses.
+**Requires opencode 2.** opencode 1.x is not supported; the last release that
+targeted it is 0.32.0 (`npm install -g opencode-presets@0.32.0`).
+
+Presets write the older key names (`permission`, `agent`, `mcp`, `plugin`,
+`provider`). opencode 2 reads and normalizes them in memory, and they match what
+an existing `opencode.json` already uses.
 
 **Upgrading from 0.32 or earlier:** `jdtls-lombok`, `jdtls-clean-workspace`,
 `privacy-share-disabled` and `tui-disable-mouse` are gone (opencode 2 has no LSP,
@@ -53,7 +56,7 @@ something outside your opencode config say so in their description.
 | `permissions-git-safe` | Permissions | merge | In the bundle. Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
 | `permissions-toolchain-info` | Permissions | merge | In the bundle. Version probes for common dev toolchains |
 | `permissions-container-info` | Permissions | merge | In the bundle. Read-only docker and podman inspection commands (the `oc` rules moved to `permissions-cluster-info` in 0.2.0) |
-| `permissions-external-dir-ask` | Permissions | merge | In the bundle. Asks before the agent touches paths outside the project (`external_directory`) — opencode 2 allows them by default, 1.x asked |
+| `permissions-external-dir-ask` | Permissions | merge | In the bundle. Asks before the agent touches paths outside the project (`external_directory`) — opencode 2 allows them by default |
 | `permissions-deny-destructive` | Permissions | merge | In the bundle. Hard-denies `sudo`, root/home-anchored `rm -rf`, `dd`, `mkfs`, force-push, `reset --hard` |
 | `permissions-deny-cluster-write` | Permissions | merge | In the bundle. Hard-denies mutating and exec `oc`, `kubectl`, `helm` verbs — no prompt, not bypassable by `--auto` |
 | `permissions-build-tools` | Permissions | merge | Not in the bundle. Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |
@@ -196,11 +199,9 @@ at, so the base URL and key are the whole setup. Both parts only show in
 LiteLLM's own resolved ones, your config-level `model_info` overrides included,
 so what opencode displays is what the gateway bills. A model the proxy reports
 no cost for is injected without a `cost` block rather than with a wrong one, and
-the startup log names it:
-
-```sh
-grep litellm-pricing ~/.local/share/opencode/log/opencode.log
-```
+the plugin names it on the server's console. opencode 2 gives plugins no logger,
+so under the background service that line is not kept; to see it, run the
+server in the foreground with `opencode serve`.
 
 `provider-litellm` is a `replace` preset, so re-running it rewrites the whole
 `provider.litellm` block and re-prompts for the base URL and key as well — have
@@ -217,7 +218,7 @@ opencode-presets install mcp-playwright permissions-git-safe
 opencode-presets remove mcp-playwright            # undo a preset
 opencode-presets install --reset permission ./presets/foo.conf  # wipe then install
 opencode-presets reset permission                 # wipe a section outright
-opencode-presets validate                         # check opencode.json (and tui.json, 1.x)
+opencode-presets validate config                  # check opencode.json
 ```
 
 Bare names are resolved through the preset search path (see "Where
@@ -228,12 +229,10 @@ Every change shows a diff and asks before touching anything. A
 backup is written to `~/.cache/opencode-presets/backups/` before
 each write — no auto-pruning, so they pile up.
 
-`validate` checks the configured `opencode.json` and `tui.json`
-against OpenCode's current schemas; opencode 2 ignores `tui.json`, so
-`validate config` is the one that matters there. Use `validate config`,
-`validate tui`, or `validate all` to choose targets. Missing files
-are skipped in `all` mode; invalid files print labeled `where`,
-`what`, and `detail` lines and exit nonzero.
+`validate config` checks the configured `opencode.json` against
+OpenCode's current schema; invalid files print labeled `where`,
+`what`, and `detail` lines and exit nonzero. Plain `validate` also
+checks `tui.json`, which opencode 2 does not read.
 
 ### Non-interactive prompt values (`--set` / `--set-env`)
 
@@ -293,8 +292,9 @@ on a readline for the next.
 Re-installing is always safe: a no-op produces no backup and no
 write.
 
-Plugin changes are loaded by opencode at startup. After installing a
-plugin preset such as `plugin-superpowers`, quit and restart opencode.
+opencode 2 runs one background service for every window, so quitting the
+TUI does not reload plugins. After installing a plugin preset such as
+`plugin-superpowers`, run `opencode service restart`.
 
 ## Where presets are found
 
@@ -336,10 +336,7 @@ OPENCODE_CONFIG=/path/to/other-opencode.json opencode-presets install ...
 OPENCODE_PRESETS_CACHE=/some/cache opencode-presets install ...
 ```
 
-`@target: tui` presets write `~/.config/opencode/tui.json`, overridable with
-`OPENCODE_TUI_CONFIG`. Only opencode 1.x reads that file: opencode 2 keeps
-terminal settings in `cli.json` and imports `tui.json` once, only while
-`cli.json` does not exist yet. No shipped preset targets it.
+opencode 2 keeps terminal settings in `cli.json`, which no preset touches.
 
 ## Writing your own preset
 
@@ -358,9 +355,8 @@ an absolute path.
 ```
 
 `@target` is optional and defaults to `config`, which writes
-`opencode.json`. `@target: tui` writes `tui.json` (opencode 1.x only, see
-above). A single install or remove operation cannot mix `config`
-and `tui` presets; run separate commands for those.
+`opencode.json`. `@target: tui` writes `tui.json`, which opencode 2 does
+not read — don't use it.
 
 `@fetch: <url> -> <dest> [sha256=hex]` downloads to the cache.
 `@prompt: name | text|secret|dir | help | default | setup` collects input
