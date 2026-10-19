@@ -180,6 +180,18 @@ test('validate skips a missing config', async () => {
   assert.match(result.stdout, /config: missing/);
 });
 
+test('a renamed preset name points at the new one', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'opencode-presets-renamed-'));
+
+  const result = await runCli(['remove', 'opencode-planify-german'], {
+    OPENCODE_CONFIG: join(dir, 'opencode.json'),
+    OPENCODE_PRESETS_CACHE: join(dir, 'cache'),
+  }, '');
+
+  assert.equal(result.code, 1, result.stderr + result.stdout);
+  assert.match(result.stderr, /"opencode-planify-german" was renamed — use "planify-german"/);
+});
+
 test('validate refuses tui', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'opencode-presets-validate-tui-'));
 

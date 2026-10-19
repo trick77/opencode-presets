@@ -19,9 +19,11 @@ no sharing, no `tui.json`), so `remove` no longer knows them. What they wrote is
 inert on opencode 2; to clear it: `opencode-presets reset lsp.jdtls` and
 `opencode-presets reset share`.
 
-**Upgrading from 0.34 or earlier:** the `opencode-planify-german` bundle is now
-`planify-german`, and its members dropped the `opencode-` prefix the same way.
-What it wrote is unchanged, so use the new name for `install` and `remove`.
+**Upgrading from 0.34 or earlier:** `opencode-planify-german` is now
+`planify-german`. Its members are now `plugin-planify-german`,
+`instructions-planify-german` and `skill-planify-german`. What they write is
+unchanged, so nothing needs reinstalling (doing it anyway adds no duplicates).
+Use the new names for `install`, `remove` and `@include`.
 
 ## Install
 
