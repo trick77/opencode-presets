@@ -3,12 +3,11 @@
 ## Testing — never touch the real config
 
 Point the CLI at a temp target/cache. Never install/remove/reset against the
-user's real `~/.config/opencode/{opencode,tui}.json`.
+user's real `~/.config/opencode/opencode.json`.
 
 ```sh
 rm -rf /tmp/oc-test && mkdir -p /tmp/oc-test/cache /tmp/oc-test/cfg
 export OPENCODE_CONFIG=/tmp/oc-test/cfg/opencode.json
-export OPENCODE_TUI_CONFIG=/tmp/oc-test/cfg/tui.json
 export OPENCODE_PRESETS_CACHE=/tmp/oc-test/cache
 npm run build && node dist/bin/opencode-presets.js install ./presets/<name>.conf
 ```
@@ -42,8 +41,8 @@ Order irrelevant.
 - `@name`, `@description`, `@author`, `@version`, `@path` — required.
 - `@description` — 1–2 sentences: what it does, what it touches. No rationale,
   history, troubleshooting. Cap 450 chars (tested).
-- `@target` — `config` (default, `opencode.json`) | `tui` (`tui.json`, read
-  by opencode 1.x only).
+- `@target` — only `config` (no-op, older confs). `tui` rejected: V2 never
+  reads `tui.json`.
 - `@mode` — `replace` (default) | `merge` | `merge-overwrite` | `append`.
 - `@fetch: URL -> dest [sha256=hex]` — repeatable.
 - `@pins: name version` — repeatable, one per pinned third-party artifact.

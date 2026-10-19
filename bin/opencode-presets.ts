@@ -23,9 +23,6 @@ const BACKUP_DIR = resolve(CACHE_DIR, 'backups');
 const TARGET = process.env.OPENCODE_CONFIG
   ? resolve(process.env.OPENCODE_CONFIG)
   : resolve(homedir(), '.config/opencode/opencode.json');
-const TUI_TARGET = process.env.OPENCODE_TUI_CONFIG
-  ? resolve(process.env.OPENCODE_TUI_CONFIG)
-  : resolve(homedir(), '.config/opencode/tui.json');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // __dirname is either <repo>/bin (running source via ts) or
@@ -61,7 +58,6 @@ const DEFAULT_PRESET_DIRS: string[] = [
 ];
 
 const SCHEMA_URL = 'https://opencode.ai/config.json';
-const TUI_SCHEMA_URL = 'https://opencode.ai/tui.json';
 const EMPTY_CONFIG = { '$schema': SCHEMA_URL };
 
 async function main(): Promise<void> {
@@ -127,8 +123,8 @@ async function main(): Promise<void> {
       resets,
       confPaths: resolved,
       setValues,
-      targets: { config: TARGET, tui: TUI_TARGET },
-      schemas: { config: SCHEMA_URL, tui: TUI_SCHEMA_URL },
+      target: TARGET,
+      schema: SCHEMA_URL,
       cacheDir: CACHE_DIR,
       backupDir: BACKUP_DIR,
     });
@@ -141,8 +137,8 @@ async function main(): Promise<void> {
     const resolved = await expandConfArgs(args);
     await runRemoveBatch({
       confPaths: resolved,
-      targets: { config: TARGET, tui: TUI_TARGET },
-      schemas: { config: SCHEMA_URL, tui: TUI_SCHEMA_URL },
+      target: TARGET,
+      schema: SCHEMA_URL,
       cacheDir: CACHE_DIR,
       backupDir: BACKUP_DIR,
     });
@@ -339,43 +335,24 @@ async function validateWritten(): Promise<void> {
   }
 }
 
-type ValidateTarget = 'config' | 'tui';
-
 async function runValidate(args: string[]): Promise<void> {
   if (args.length > 1) {
     printUsage();
     process.exit(1);
   }
-  const mode = args[0] ?? 'all';
-  if (mode !== 'all' && mode !== 'config' && mode !== 'tui') {
-    console.error(c.err('error: ') + 'validate target must be config, tui, or all');
+  const mode = args[0] ?? 'config';
+  if (mode !== 'config') {
+    console.error(c.err('error: ') + 'validate target must be config (opencode 2 reads only opencode.json)');
     process.exit(1);
   }
 
-  const targets: Array<{ kind: ValidateTarget; path: string; schema: string }> = mode === 'all'
-    ? [
-        { kind: 'config', path: TARGET, schema: SCHEMA_URL },
-        { kind: 'tui', path: TUI_TARGET, schema: TUI_SCHEMA_URL },
-      ]
-    : [
-        mode === 'config'
-          ? { kind: 'config', path: TARGET, schema: SCHEMA_URL }
-          : { kind: 'tui', path: TUI_TARGET, schema: TUI_SCHEMA_URL },
-      ];
-
-  let invalid = false;
-  let readError = false;
-  for (const target of targets) {
-    const outcome = await validateTargetFile(target.kind, target.path, target.schema);
-    if (outcome === 'invalid') invalid = true;
-    if (outcome === 'read-error') readError = true;
-  }
-  if (readError) process.exit(2);
-  if (invalid) process.exit(1);
+  const outcome = await validateTargetFile('config', TARGET, SCHEMA_URL);
+  if (outcome === 'read-error') process.exit(2);
+  if (outcome === 'invalid') process.exit(1);
 }
 
 async function validateTargetFile(
-  kind: ValidateTarget,
+  kind: string,
   path: string,
   schema: string,
 ): Promise<'valid' | 'invalid' | 'missing' | 'skipped' | 'read-error'> {
@@ -441,11 +418,10 @@ function printUsage(): void {
   console.log('  opencode-presets remove <conf>...                remove one or more installed presets');
   console.log('  opencode-presets reset [<path>]                  wipe a path, or wipe everything');
   console.log('                                                   to the minimal baseline if no path');
-  console.log('  opencode-presets validate [config|tui|all]       validate target config files');
+  console.log('  opencode-presets validate [config]               validate the target opencode.json');
   console.log('');
   console.log('Environment:');
   console.log('  OPENCODE_CONFIG         target opencode.json (default ~/.config/opencode/opencode.json)');
-  console.log('  OPENCODE_TUI_CONFIG     target tui.json      (default ~/.config/opencode/tui.json)');
   console.log('  OPENCODE_PRESETS_CACHE  cache dir            (default ~/.cache/opencode-presets)');
   console.log('  OPENCODE_PRESETS_PATH   colon-separated extra preset dirs (searched first by `list`,');
   console.log('                          ahead of ./presets and <repo>/presets)');

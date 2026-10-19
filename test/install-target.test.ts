@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 
-test('install routes tui presets to OPENCODE_TUI_CONFIG', async () => {
+test('install refuses a tui preset and writes nothing', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'opencode-presets-target-'));
   const cacheDir = join(dir, 'cache');
   const opencodeConfig = join(dir, 'opencode.json');
@@ -24,25 +24,19 @@ false
 
   const result = await runCli(['install', preset], {
     OPENCODE_CONFIG: opencodeConfig,
-    OPENCODE_TUI_CONFIG: tuiConfig,
     OPENCODE_PRESETS_CACHE: cacheDir,
   }, 'y\n');
 
-  assert.equal(result.code, 0, result.stderr + result.stdout);
-  assert.match(result.stdout, new RegExp(`Target.*${escapeRegExp(tuiConfig)}`));
-  assert.deepEqual(JSON.parse(await readFile(tuiConfig, 'utf8')), {
-    '$schema': 'https://opencode.ai/tui.json',
-    mouse: false,
-  });
-
+  assert.equal(result.code, 1, result.stderr + result.stdout);
+  assert.match(result.stderr, /opencode 2 reads only opencode.json/);
   await assert.rejects(() => stat(opencodeConfig), /ENOENT/);
+  await assert.rejects(() => stat(tuiConfig), /ENOENT/);
 });
 
 test('install proceeds when existing schema errors are unchanged by the preset', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'opencode-presets-invalid-existing-'));
   const cacheDir = join(dir, 'cache');
   const opencodeConfig = join(dir, 'opencode.json');
-  const tuiConfig = join(dir, 'tui.json');
 
   await mkdir(cacheDir, { recursive: true });
   await writeFile(join(cacheDir, 'schema.json'), JSON.stringify(minimalConfigSchema(), null, 2), 'utf8');
@@ -59,7 +53,6 @@ test('install proceeds when existing schema errors are unchanged by the preset',
 
   const result = await runCli(['install', 'permissions-webfetch-ask'], {
     OPENCODE_CONFIG: opencodeConfig,
-    OPENCODE_TUI_CONFIG: tuiConfig,
     OPENCODE_PRESETS_CACHE: cacheDir,
   }, 'y\n');
 
@@ -84,7 +77,6 @@ test('install reports existing schema errors before the user approves changes', 
   const dir = await mkdtemp(join(tmpdir(), 'opencode-presets-invalid-preflight-'));
   const cacheDir = join(dir, 'cache');
   const opencodeConfig = join(dir, 'opencode.json');
-  const tuiConfig = join(dir, 'tui.json');
   const original = {
     '$schema': 'https://opencode.ai/config.json',
     mcp: {
@@ -102,7 +94,6 @@ test('install reports existing schema errors before the user approves changes', 
 
   const result = await runCli(['install', 'permissions-webfetch-ask'], {
     OPENCODE_CONFIG: opencodeConfig,
-    OPENCODE_TUI_CONFIG: tuiConfig,
     OPENCODE_PRESETS_CACHE: cacheDir,
   }, 'n\n');
 
@@ -118,7 +109,6 @@ test('install offers prompt answers already in the config; Enter keeps them', as
   const dir = await mkdtemp(join(tmpdir(), 'opencode-presets-reuse-prompts-'));
   const cacheDir = join(dir, 'cache');
   const opencodeConfig = join(dir, 'opencode.json');
-  const tuiConfig = join(dir, 'tui.json');
   const preset = join(dir, 'plugin-x.conf');
 
   await mkdir(cacheDir, { recursive: true });
@@ -141,7 +131,6 @@ test('install offers prompt answers already in the config; Enter keeps them', as
 
   const result = await runCli(['install', preset], {
     OPENCODE_CONFIG: opencodeConfig,
-    OPENCODE_TUI_CONFIG: tuiConfig,
     OPENCODE_PRESETS_CACHE: cacheDir,
   }, 'y\n\n\n');
 
@@ -154,11 +143,10 @@ test('install offers prompt answers already in the config; Enter keeps them', as
   ]);
 });
 
-test('validate checks config and tui targets', async () => {
+test('validate checks the config', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'opencode-presets-validate-valid-'));
   const cacheDir = join(dir, 'cache');
   const opencodeConfig = join(dir, 'opencode.json');
-  const tuiConfig = join(dir, 'tui.json');
 
   await writeSchemas(cacheDir);
   await writeFile(opencodeConfig, JSON.stringify({
@@ -167,44 +155,47 @@ test('validate checks config and tui targets', async () => {
       webfetch: 'ask',
     },
   }, null, 2) + '\n', 'utf8');
-  await writeFile(tuiConfig, JSON.stringify({
-    '$schema': 'https://opencode.ai/tui.json',
-    mouse: false,
-  }, null, 2) + '\n', 'utf8');
 
   const result = await runCli(['validate'], {
     OPENCODE_CONFIG: opencodeConfig,
-    OPENCODE_TUI_CONFIG: tuiConfig,
     OPENCODE_PRESETS_CACHE: cacheDir,
   }, '');
 
   assert.equal(result.code, 0, result.stderr + result.stdout);
   assert.match(result.stdout, /config: valid/);
-  assert.match(result.stdout, /tui: valid/);
+  assert.doesNotMatch(result.stdout, /tui/);
 });
 
-test('validate skips missing files in all mode', async () => {
+test('validate skips a missing config', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'opencode-presets-validate-missing-'));
   const cacheDir = join(dir, 'cache');
   const opencodeConfig = join(dir, 'opencode.json');
-  const tuiConfig = join(dir, 'tui.json');
 
-  const result = await runCli(['validate', 'all'], {
+  const result = await runCli(['validate'], {
     OPENCODE_CONFIG: opencodeConfig,
-    OPENCODE_TUI_CONFIG: tuiConfig,
     OPENCODE_PRESETS_CACHE: cacheDir,
   }, '');
 
   assert.equal(result.code, 0, result.stderr + result.stdout);
   assert.match(result.stdout, /config: missing/);
-  assert.match(result.stdout, /tui: missing/);
+});
+
+test('validate refuses tui', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'opencode-presets-validate-tui-'));
+
+  const result = await runCli(['validate', 'tui'], {
+    OPENCODE_CONFIG: join(dir, 'opencode.json'),
+    OPENCODE_PRESETS_CACHE: join(dir, 'cache'),
+  }, '');
+
+  assert.equal(result.code, 1, result.stderr + result.stdout);
+  assert.match(result.stderr, /opencode 2 reads only opencode.json/);
 });
 
 test('validate reports where and what for invalid config', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'opencode-presets-validate-invalid-'));
   const cacheDir = join(dir, 'cache');
   const opencodeConfig = join(dir, 'opencode.json');
-  const tuiConfig = join(dir, 'tui.json');
 
   await writeSchemas(cacheDir);
   await writeFile(opencodeConfig, JSON.stringify({
@@ -220,7 +211,6 @@ test('validate reports where and what for invalid config', async () => {
 
   const result = await runCli(['validate', 'config'], {
     OPENCODE_CONFIG: opencodeConfig,
-    OPENCODE_TUI_CONFIG: tuiConfig,
     OPENCODE_PRESETS_CACHE: cacheDir,
   }, '');
 
@@ -254,14 +244,9 @@ function runCli(
   });
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 async function writeSchemas(cacheDir: string): Promise<void> {
   await mkdir(cacheDir, { recursive: true });
   await writeFile(join(cacheDir, 'schema.json'), JSON.stringify(minimalConfigSchema(), null, 2), 'utf8');
-  await writeFile(join(cacheDir, 'tui-schema.json'), JSON.stringify(minimalTuiSchema(), null, 2), 'utf8');
 }
 
 function minimalConfigSchema(): object {
@@ -306,17 +291,5 @@ function minimalConfigSchema(): object {
       },
     },
     additionalProperties: true,
-  };
-}
-
-function minimalTuiSchema(): object {
-  return {
-    '$schema': 'https://json-schema.org/draft/2020-12/schema',
-    type: 'object',
-    properties: {
-      '$schema': { type: 'string' },
-      mouse: { type: 'boolean' },
-    },
-    additionalProperties: false,
   };
 }

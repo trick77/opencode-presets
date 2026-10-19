@@ -17,7 +17,6 @@ describe('parseConfString — required headers', () => {
     assert.equal(meta.author, 'someone');
     assert.equal(meta.version, '0.1.0');
     assert.equal(meta.path, 'a.b.c');
-    assert.equal(meta.target, 'config');
     assert.equal(meta.mode, 'replace');
     assert.deepEqual(meta.fetch, []);
     assert.deepEqual(meta.prompts, []);
@@ -34,17 +33,14 @@ describe('parseConfString — required headers', () => {
 });
 
 describe('parseConfString — @target', () => {
-  test('accepts config and tui targets', () => {
-    for (const target of ['config', 'tui']) {
-      const src = minimalHeader + `// @target: ${target}\n\n{ "x": 1 }`;
-      const { meta } = parseConfString(src);
-      assert.equal(meta.target, target);
-    }
+  test('accepts config, the only target', () => {
+    const src = minimalHeader + '// @target: config\n\n{ "x": 1 }';
+    assert.deepEqual(parseConfString(src).body, { x: 1 });
   });
 
-  test('rejects unknown target', () => {
-    const src = minimalHeader + '// @target: bogus\n\n{}';
-    assert.throws(() => parseConfString(src), /@target must be/);
+  test('rejects tui: opencode 2 does not read tui.json', () => {
+    const src = minimalHeader + '// @target: tui\n\n{}';
+    assert.throws(() => parseConfString(src), /@target "tui" is not supported: opencode 2 reads only opencode.json/);
   });
 });
 

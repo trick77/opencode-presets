@@ -8,7 +8,6 @@ export interface FetchDirective {
 }
 
 export type PromptType = 'text' | 'secret' | 'dir';
-export type ConfTarget = 'config' | 'tui';
 
 export interface PromptDirective {
   name: string;
@@ -41,7 +40,6 @@ export interface ConfMeta {
   description: string;
   author: string;
   version: string;
-  target: ConfTarget;
   path: string;
   mode: MergeMode;
   fetch: FetchDirective[];
@@ -81,7 +79,6 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
     description: '',
     author: '',
     version: '',
-    target: 'config',
     path: '',
     mode: 'replace',
     fetch: [],
@@ -116,10 +113,11 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
           meta[key] = value;
           break;
         case 'target':
-          if (value !== 'config' && value !== 'tui') {
-            throw parseError(filePath, i + 1, `@target must be "config" or "tui", got "${value}"`);
+          // Only opencode.json is written. `config` was the default and stays
+          // accepted so older presets parse; opencode 2 does not read tui.json.
+          if (value !== 'config') {
+            throw parseError(filePath, i + 1, `@target "${value}" is not supported: opencode 2 reads only opencode.json`);
           }
-          meta.target = value;
           break;
         case 'mode':
           if (value !== 'replace' && value !== 'merge' && value !== 'merge-overwrite' && value !== 'append') {
