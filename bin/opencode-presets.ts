@@ -149,6 +149,15 @@ async function main(): Promise<void> {
   process.exit(1);
 }
 
+// Shipped presets that changed name. Only consulted when nothing by the old
+// name exists, so a user's own preset of that name still wins.
+const RENAMED: Record<string, string> = {
+  'opencode-planify-german': 'planify-german',
+  'plugin-opencode-planify-german': 'plugin-planify-german',
+  'instructions-opencode-planify-german': 'instructions-planify-german',
+  'skill-opencode-planify-german': 'skill-planify-german',
+};
+
 // If `arg` looks like a path (contains a slash, ends in .conf, or
 // resolves to an existing file), use it as-is. Otherwise treat it as
 // a bare preset name and search DEFAULT_PRESET_DIRS for `<arg>.conf`.
@@ -159,6 +168,10 @@ async function resolveConfArg(arg: string): Promise<string> {
   for (const dir of DEFAULT_PRESET_DIRS) {
     const candidate = resolve(dir, arg + '.conf');
     if (await fileExists(candidate)) return candidate;
+  }
+  if (RENAMED[arg]) {
+    console.error(c.err('error: ') + `"${arg}" was renamed — use "${RENAMED[arg]}". What it writes is unchanged.`);
+    process.exit(1);
   }
   console.error(c.err('error: ') + `no preset named "${arg}" found in:`);
   for (const dir of DEFAULT_PRESET_DIRS) console.error('  ' + dir);
@@ -201,6 +214,10 @@ async function resolveIncludeRef(ref: string, fromFile: string): Promise<string>
   for (const dir of DEFAULT_PRESET_DIRS) {
     const candidate = resolve(dir, ref + '.conf');
     if (await fileExists(candidate)) return candidate;
+  }
+  if (RENAMED[ref]) {
+    console.error(c.err('error: ') + `${basename(fromFile, '.conf')} includes "${ref}", which was renamed to "${RENAMED[ref]}" — change the @include.`);
+    process.exit(1);
   }
   console.error(c.err('error: ') + `${basename(fromFile, '.conf')} includes "${ref}", which was not found in:`);
   for (const dir of DEFAULT_PRESET_DIRS) console.error('  ' + dir);

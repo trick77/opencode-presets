@@ -19,6 +19,12 @@ no sharing, no `tui.json`), so `remove` no longer knows them. What they wrote is
 inert on opencode 2; to clear it: `opencode-presets reset lsp.jdtls` and
 `opencode-presets reset share`.
 
+**Upgrading from 0.34 or earlier:** `opencode-planify-german` is now
+`planify-german`. Its members are now `plugin-planify-german`,
+`instructions-planify-german` and `skill-planify-german`. What they write is
+unchanged, so nothing needs reinstalling (doing it anyway adds no duplicates).
+Use the new names for `install`, `remove` and `@include`.
+
 ## Install
 
 ```sh
@@ -73,13 +79,13 @@ something outside your opencode config say so in their description.
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v7.0.0`) |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
-| `opencode-planify-german` | Bundle | — | The whole planify setup, which does nothing in parts: the `opencode-planify-german` plugin from npm (pinned to `1.0.0`, needs opencode 2), registering a `plan_render` tool that validates a plan JSON against a schema and renders a self-contained HTML file to `docs/plans/<TICKET>-<slug>.html`, and a `pr_summary` tool that writes a short task/problem/solution summary into the description of the Bitbucket Data Center PR of the current branch, opening it as a draft if none is open; the rules file that makes opencode answer in German with Swiss orthography (never the eszett character, always `ss`) and send every plan through `plan_render`; and the `planify` skill documenting the plan schema. Prompts for the Bitbucket URL and an HTTP access token with repository write, stored as plugin options in `opencode.json` (token in plain text; prefer `--set-env bitbucketToken=ENV_VAR`). Rules file and skill are fetched sha256-verified. Run `opencode service restart` after installing |
+| `planify-german` | Bundle | — | The whole planify setup, which does nothing in parts: the `opencode-planify-german` plugin from npm (pinned to `1.0.0`, needs opencode 2), registering a `plan_render` tool that validates a plan JSON against a schema and renders a self-contained HTML file to `docs/plans/<TICKET>-<slug>.html`, and a `pr_summary` tool that writes a short task/problem/solution summary into the description of the Bitbucket Data Center PR of the current branch, opening it as a draft if none is open; the rules file that makes opencode answer in German with Swiss orthography (never the eszett character, always `ss`) and send every plan through `plan_render`; and the `planify` skill documenting the plan schema. Prompts for the Bitbucket URL and an HTTP access token with repository write, stored as plugin options in `opencode.json` (token in plain text; prefer `--set-env bitbucketToken=ENV_VAR`). Rules file and skill are fetched sha256-verified. Run `opencode service restart` after installing |
 | `skill-diagram-design` | Skill | append | Needs a clone of the repo on disk first — `git clone https://github.com/cathrynlavery/diagram-design ~/src/diagram-design`. Registers the `diagram-design` skill (editorial diagram types as self-contained HTML + SVG) by appending your clone's `skills/` dir to `skills.paths`; answer with that clone's `skills/` dir (`--set skillsDir=/Users/you/src/diagram-design/skills`); the install refuses if the dir is not there. Tracks `main` — the repo ships no tags. One-way: `remove` cannot undo an append preset that prompts, so uninstall by deleting the one `skills.paths` entry by hand |
 
 ### Bundles
 
 A preset whose header is `@include` lines is a **bundle**: a list of other
-presets, with no rules of its own. Three ship: `opencode-planify-german`,
+presets, with no rules of its own. Three ship: `planify-german`,
 `litellm-pricing`, and `permissions-recommended`, which is all of this:
 
 ```
@@ -130,7 +136,7 @@ Not in the bundle, on purpose:
   into, production included. Worth an explicit decision.
 - `permissions-webfetch-ask` — *adds* friction; wrong for a defaults bundle.
 
-The members of `opencode-planify-german` and `litellm-pricing` do nothing on
+The members of `planify-german` and `litellm-pricing` do nothing on
 their own, so they are marked `@part-of` their bundle and `list` hides them;
 `list --all` shows them. They still install and remove by name.
 
