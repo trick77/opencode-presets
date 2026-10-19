@@ -50,7 +50,7 @@ test('ships a litellm plugin preset that appends the runtime-discovery plugin', 
   assert.equal(meta.name, 'plugin-litellm-pricing');
   assert.equal(meta.path, 'plugin');
   assert.equal(meta.mode, 'append');
-  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@0.9.0']);
+  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@1.0.0']);
 });
 
 test('only the presets that drive an external binary declare @requires-bin', async () => {
@@ -119,7 +119,7 @@ test('ships a litellm provider preset that points at a proxy URL, no models', as
 
   // The key is prompted for as a secret (hidden input) and written into the
   // config, matching how mcp-http handles header credentials. Base URL and key
-  // are the whole configuration: plugin 0.9.0 prices against the same proxy, so
+  // are the whole configuration: plugin 1.0.0 prices against the same proxy, so
   // there is nothing else to name.
   assert.deepEqual(
     meta.prompts.map((p) => ({ name: p.name, type: p.type, default: p.default })),
@@ -198,8 +198,8 @@ test('ships a litellm passthrough-header preset that writes a single header valu
 test('records the pinned third-party version of every preset that installs one', async () => {
   const expected: Record<string, Array<{ name: string; version: string }>> = {
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.83' }],
-    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.9.0' }],
-    'plugin-opencode-planify-german': [{ name: 'opencode-planify-german', version: '0.6.0' }],
+    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '1.0.0' }],
+    'plugin-opencode-planify-german': [{ name: 'opencode-planify-german', version: '1.0.0' }],
     'plugin-superpowers': [{ name: 'superpowers', version: '7.0.0' }],
   };
 
