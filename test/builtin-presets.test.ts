@@ -50,7 +50,7 @@ test('ships a litellm plugin preset that appends the runtime-discovery plugin', 
   assert.equal(meta.name, 'plugin-litellm-pricing');
   assert.equal(meta.path, 'plugin');
   assert.equal(meta.mode, 'append');
-  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@0.9.0']);
+  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@1.0.0']);
 });
 
 test('only the presets that drive an external binary declare @requires-bin', async () => {
@@ -119,7 +119,7 @@ test('ships a litellm provider preset that points at a proxy URL, no models', as
 
   // The key is prompted for as a secret (hidden input) and written into the
   // config, matching how mcp-http handles header credentials. Base URL and key
-  // are the whole configuration: plugin 0.9.0 prices against the same proxy, so
+  // are the whole configuration: plugin 1.0.0 prices against the same proxy, so
   // there is nothing else to name.
   assert.deepEqual(
     meta.prompts.map((p) => ({ name: p.name, type: p.type, default: p.default })),
@@ -197,10 +197,9 @@ test('ships a litellm passthrough-header preset that writes a single header valu
 
 test('records the pinned third-party version of every preset that installs one', async () => {
   const expected: Record<string, Array<{ name: string; version: string }>> = {
-    'jdtls-lombok': [{ name: 'lombok', version: '1.18.48' }],
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.83' }],
-    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.9.0' }],
-    'plugin-opencode-planify-german': [{ name: 'opencode-planify-german', version: '0.6.0' }],
+    'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '1.0.0' }],
+    'plugin-opencode-planify-german': [{ name: 'opencode-planify-german', version: '1.0.0' }],
     'plugin-superpowers': [{ name: 'superpowers', version: '7.0.0' }],
   };
 
@@ -261,7 +260,7 @@ test('keeps shipped descriptions short enough to read at the install prompt', as
   }
 });
 
-test('ships a recommended bundle that expands to the read-only modules, then the denies', async () => {
+test('ships a recommended bundle that expands to allow, then ask, then deny modules', async () => {
   const dir = resolve(process.cwd(), 'presets');
   const { meta, body } = await parseConf(resolve(dir, 'permissions-recommended.conf'));
 
@@ -272,9 +271,9 @@ test('ships a recommended bundle that expands to the read-only modules, then the
     'permissions-git-safe',
     'permissions-toolchain-info',
     'permissions-container-info',
+    'permissions-external-dir-ask',
     'permissions-deny-destructive',
     'permissions-deny-cluster-write',
-    'privacy-share-disabled',
   ]);
 
   const resolveRef = async (ref: string) => resolve(dir, ref + '.conf');
@@ -285,16 +284,19 @@ test('ships a recommended bundle that expands to the read-only modules, then the
   // shadowed by.
   const actions = await Promise.all(expanded.map(async (p) => {
     const { body } = await parseConf(p);
-    // Only the permission modules carry allow/deny maps. A scalar-bodied module
-    // like privacy-share-disabled has no ordering constraint here, and running
-    // Object.values over its string body would spell it out character by
-    // character.
+    // Only object bodies carry allow/deny maps; running Object.values over a
+    // scalar body would spell it out character by character.
     if (body === null || typeof body !== 'object' || Array.isArray(body)) return new Set<string>();
     return new Set(Object.values(body as Record<string, string>));
   }));
   const lastAllow = actions.reduce((last, a, i) => (a.has('allow') ? i : last), -1);
   const firstDeny = actions.findIndex((a) => a.has('deny'));
   assert.ok(firstDeny > lastAllow, 'deny modules must expand after every allow module');
+  const asks = actions.flatMap((a, i) => (a.has('ask') ? [i] : []));
+  assert.ok(
+    asks.every((i) => i > lastAllow && i < firstDeny),
+    'ask modules must expand between the allows and the denies',
+  );
 
   // Nothing the bundle pulls in may execute project code — that would let
   // `python -c` route around the very deny rules the bundle installs.
@@ -304,16 +306,15 @@ test('ships a recommended bundle that expands to the read-only modules, then the
   );
 });
 
-test('ships a share preset that turns opencode session sharing off', async () => {
+test('ships an external_directory ask preset', async () => {
   const dir = resolve(process.cwd(), 'presets');
-  const { meta, body } = await parseConf(resolve(dir, 'privacy-share-disabled.conf'));
+  const { meta, body } = await parseConf(resolve(dir, 'permissions-external-dir-ask.conf'));
 
-  assert.equal(meta.path, 'share');
-  // `replace`, not `merge`: `share` is a scalar, and installing the bundle has
-  // to win over a stale `"auto"` already sitting in the config.
-  assert.equal(meta.mode, 'replace');
-  // One of the three values the opencode schema enumerates for `share`.
-  assert.equal(body, 'disabled');
+  assert.equal(meta.path, 'permission');
+  // `merge`: a hand-written external_directory rule must survive the bundle.
+  assert.equal(meta.mode, 'merge');
+  // opencode 2 allows external_directory by default; 1.x asked.
+  assert.deepEqual(body, { external_directory: 'ask' });
 });
 
 test('every @include in a shipped preset points at another shipped preset', async () => {

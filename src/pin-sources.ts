@@ -16,12 +16,6 @@ export const PIN_SOURCES: Record<string, PinSource> = {
   'opencode-plugin-litellm-pricing': { kind: 'npm', pkg: 'opencode-plugin-litellm-pricing' },
   'opencode-planify-german': { kind: 'npm', pkg: 'opencode-planify-german' },
   'superpowers': { kind: 'github-release', repo: 'obra/superpowers' },
-  // Tags, not the two obvious sources, both of which are wrong for lombok:
-  // Maven Central's search index reported 1.18.38 as latest while 1.18.46 was
-  // downloadable, and projectlombok.org/all-versions only linked jars up to
-  // 1.18.44 — which made the correct pin look *ahead* of upstream. The repo has
-  // no GitHub releases, but it does tag every version.
-  'lombok': { kind: 'github-tags', repo: 'projectlombok/lombok' },
 };
 
 export class UnknownPinError extends Error {}

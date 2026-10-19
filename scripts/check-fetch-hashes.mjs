@@ -29,8 +29,8 @@ import { parseConf } from '../dist/src/parse-conf.js';
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PRESET_DIR = resolve(REPO_ROOT, 'presets');
 
-// Only this repo's own raw URLs. A third-party fetch (lombok.jar) has no local
-// file to compare against and is none of this script's business.
+// Only this repo's own raw URLs. A third-party fetch has no local file to
+// compare against and is none of this script's business.
 const FIRST_PARTY =
   /^https:\/\/raw\.githubusercontent\.com\/trick77\/opencode-presets\/[^/]+\/(.+)$/;
 

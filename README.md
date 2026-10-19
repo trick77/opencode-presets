@@ -2,9 +2,19 @@
   <img src="logo.svg" alt="opencode-presets" width="720">
 </p>
 
-Ready-made presets for OpenCode: permission rules, MCP servers, LSP
-overrides, agent limits, TUI preferences. A small CLI merges them into
-your `opencode.json` and `tui.json` so you never hand-edit the JSON.
+Ready-made presets for OpenCode 2: permission rules, MCP servers, plugins,
+skills, agent limits. A small CLI merges them into your `opencode.json` so you
+never hand-edit the JSON.
+
+Presets write the 1.x key shapes (`permission`, `agent`, `mcp`, `plugin`,
+`provider`). opencode 2 still reads them and normalizes them in memory, and they
+match what an existing `opencode.json` already uses.
+
+**Upgrading from 0.32 or earlier:** `jdtls-lombok`, `jdtls-clean-workspace`,
+`privacy-share-disabled` and `tui-disable-mouse` are gone (opencode 2 has no LSP,
+no sharing, no `tui.json`), so `remove` no longer knows them. What they wrote is
+inert on opencode 2; to clear it: `opencode-presets reset lsp.jdtls` and
+`opencode-presets reset share`.
 
 ## Install
 
@@ -18,7 +28,7 @@ Needs Node 22+.
 
 Fresh install? Start with the permission bundle — one command, no prompts
 for the everyday read-only commands, hard blocks on the destructive ones, and
-session sharing turned off:
+a prompt before the agent touches paths outside the project:
 
 ```sh
 opencode-presets install permissions-recommended
@@ -27,7 +37,7 @@ opencode-presets install permissions-recommended
 **It is opinionated, and it is not a free pass.** These are one person's
 defaults for everyday work, not an audited sandbox and not a security boundary.
 They cut prompting for read-only commands, hard-block a list of known
-footguns, and set `share` to "disabled" — that is the whole claim. Anything
+footguns, and ask before paths outside the project — that is the whole claim. Anything
 not listed still falls through to a prompt you have to read; the deny rules
 miss env-prefixed and `sh -c`-wrapped invocations; and the presets you add on
 top can undo them. Read the rules before trusting them, and keep deciding for
@@ -43,13 +53,12 @@ something outside your opencode config say so in their description.
 | `permissions-git-safe` | Permissions | merge | In the bundle. Read-only git commands (status, diff, log, branch --list, fetch, etc.) |
 | `permissions-toolchain-info` | Permissions | merge | In the bundle. Version probes for common dev toolchains |
 | `permissions-container-info` | Permissions | merge | In the bundle. Read-only docker and podman inspection commands (the `oc` rules moved to `permissions-cluster-info` in 0.2.0) |
+| `permissions-external-dir-ask` | Permissions | merge | In the bundle. Asks before the agent touches paths outside the project (`external_directory`) — opencode 2 allows them by default, 1.x asked |
 | `permissions-deny-destructive` | Permissions | merge | In the bundle. Hard-denies `sudo`, root/home-anchored `rm -rf`, `dd`, `mkfs`, force-push, `reset --hard` |
 | `permissions-deny-cluster-write` | Permissions | merge | In the bundle. Hard-denies mutating and exec `oc`, `kubectl`, `helm` verbs — no prompt, not bypassable by `--auto` |
 | `permissions-build-tools` | Permissions | merge | Not in the bundle. Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |
 | `permissions-cluster-info` | Permissions | merge | Not in the bundle. Read-only `oc` (OpenShift) inspection — grants read access to whichever cluster you are logged into |
 | `permissions-webfetch-ask` | Permissions | merge | Not in the bundle. Requires approval before opencode uses the webfetch tool |
-| `jdtls-lombok` | LSP | replace | Needs `jdtls` and a JDK 21+ on `PATH` already. Makes jdtls lombok-aware via a `-javaagent` flag (pins lombok 1.18.48, sha256-verified) |
-| `jdtls-clean-workspace` | LSP | replace | Stops jdtls from writing `.project`/`.classpath`/etc. into your project root |
 | `mcp-http` | MCP | replace | Add an HTTP MCP server (localhost or remote) with one custom header (prompts for id, URL, header name, header value) |
 | `mcp-http-noauth` | MCP | replace | Add an HTTP MCP server (localhost or remote) without auth headers (prompts for id, URL) |
 | `mcp-intellij` | MCP | replace | Requires the official "MCP Server" plugin installed and enabled in the IDE first — this preset does not install it. Adds the JetBrains IDE MCP server (loopback HTTP, default port 64342) |
@@ -57,14 +66,12 @@ something outside your opencode config say so in their description.
 | `mcp-litellm-passthrough` | MCP | replace | Install `mcp-litellm` first — re-running it replaces `mcp.litellm` and drops these headers. Adds one `x-mcp-<alias>-<header>` passthrough header to the `mcp.litellm` server so an upstream MCP server authenticates as you (run once per header) |
 | `mcp-playwright` | MCP | replace | Add the Playwright MCP server (local stdio via npx; pins `@playwright/mcp` 0.0.83) |
 | `mcp-vscode` | MCP | replace | Requires the `JuehangQin.vscode-mcp-server` extension installed, enabled and toggled active in VS Code first — this preset does not install it. Adds the VS Code MCP server via that extension (loopback HTTP, default port 3000) |
-| `litellm-pricing` | Provider | bundle | LiteLLM proxy models in the picker with the proxy's own per-model pricing instead of `$0`: points the `litellm` provider at your proxy (prompts for base URL and API key; no models list) and adds `opencode-plugin-litellm-pricing` (pins 0.9.0), which fills in the models at runtime |
+| `litellm-pricing` | Provider | bundle | LiteLLM proxy models in the picker with the proxy's own per-model pricing instead of `$0`: points the `litellm` provider at your proxy (prompts for base URL and API key; no models list) and adds `opencode-plugin-litellm-pricing` (pins 1.0.0, needs opencode 2), which fills in the models at runtime |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v7.0.0`) |
-| `privacy-share-disabled` | Privacy | replace | In the bundle. Sets `share` to "disabled" so opencode never publishes a session, automatically or on command |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
-| `opencode-planify-german` | Bundle | — | The whole planify setup, which does nothing in parts: the `opencode-planify-german` plugin from npm (pinned to `0.6.0`), registering a `plan_render` tool that validates a plan JSON against a schema and renders a self-contained HTML file to `docs/plans/<TICKET>-<slug>.html`, and a `pr_summary` tool that writes a short task/problem/solution summary into the description of the Bitbucket Data Center PR of the current branch, opening it as a draft if none is open; the rules file that makes opencode answer in German with Swiss orthography (never the eszett character, always `ss`) and send every plan through `plan_render`; and the `planify` skill documenting the plan schema. Prompts for the Bitbucket URL and an HTTP access token with repository write, stored as plugin options in `opencode.json` (token in plain text; prefer `--set-env bitbucketToken=ENV_VAR`). Rules file and skill are fetched sha256-verified. Restart opencode after installing — plugins are resolved at start |
+| `opencode-planify-german` | Bundle | — | The whole planify setup, which does nothing in parts: the `opencode-planify-german` plugin from npm (pinned to `1.0.0`, needs opencode 2), registering a `plan_render` tool that validates a plan JSON against a schema and renders a self-contained HTML file to `docs/plans/<TICKET>-<slug>.html`, and a `pr_summary` tool that writes a short task/problem/solution summary into the description of the Bitbucket Data Center PR of the current branch, opening it as a draft if none is open; the rules file that makes opencode answer in German with Swiss orthography (never the eszett character, always `ss`) and send every plan through `plan_render`; and the `planify` skill documenting the plan schema. Prompts for the Bitbucket URL and an HTTP access token with repository write, stored as plugin options in `opencode.json` (token in plain text; prefer `--set-env bitbucketToken=ENV_VAR`). Rules file and skill are fetched sha256-verified. Run `opencode service restart` after installing |
 | `skill-diagram-design` | Skill | append | Needs a clone of the repo on disk first — `git clone https://github.com/cathrynlavery/diagram-design ~/src/diagram-design`. Registers the `diagram-design` skill (editorial diagram types as self-contained HTML + SVG) by appending your clone's `skills/` dir to `skills.paths`; answer with that clone's `skills/` dir (`--set skillsDir=/Users/you/src/diagram-design/skills`); the install refuses if the dir is not there. Tracks `main` — the repo ships no tags. One-way: `remove` cannot undo an append preset that prompts, so uninstall by deleting the one `skills.paths` entry by hand |
-| `tui-disable-mouse` | TUI | replace | Disables TUI mouse capture so native terminal selection and scrolling keep working |
 
 ### Bundles
 
@@ -78,9 +85,9 @@ permissions-recommended
   permissions-git-safe             40 keys   status, diff, log, blame, fetch  allow
   permissions-toolchain-info       60 keys   node -v, python -V, mvn -v       allow
   permissions-container-info       52 keys   docker/podman ps, logs, inspect  allow
+  permissions-external-dir-ask      1 key    external_directory               ask
   permissions-deny-destructive     34 keys   sudo, dd, mkfs, rm -rf /, -f     deny
   permissions-deny-cluster-write   64 keys   oc/kubectl/helm delete, exec     deny
-  privacy-share-disabled            1 key    share                            disabled
 ```
 
 The order is part of the definition: opencode is last-match-wins and `merge`
@@ -169,7 +176,7 @@ longer lists the `oc` rules. Clear them with
 Install multiple at once:
 
 ```sh
-opencode-presets install jdtls-lombok jdtls-clean-workspace
+opencode-presets install mcp-playwright agent-runaway-guard
 ```
 
 Presets whose path uses a prompt (like `mcp-http`) can't be
@@ -205,24 +212,25 @@ clears the now-unused `options.catalogURL` out of your config.
 ```sh
 opencode-presets list                              # what's available
 opencode-presets list --all                        # plus presets that only work in a bundle
-opencode-presets install jdtls-lombok             # apply one preset by name
-opencode-presets install jdtls-lombok permissions-git-safe
-opencode-presets remove jdtls-lombok              # undo a preset
+opencode-presets install mcp-playwright           # apply one preset by name
+opencode-presets install mcp-playwright permissions-git-safe
+opencode-presets remove mcp-playwright            # undo a preset
 opencode-presets install --reset permission ./presets/foo.conf  # wipe then install
 opencode-presets reset permission                 # wipe a section outright
-opencode-presets validate                         # check opencode.json and tui.json
+opencode-presets validate                         # check opencode.json (and tui.json, 1.x)
 ```
 
 Bare names are resolved through the preset search path (see "Where
 presets are found" below). You can always pass an explicit path
-instead, e.g. `install ./presets/jdtls-lombok.conf`.
+instead, e.g. `install ./presets/mcp-playwright.conf`.
 
 Every change shows a diff and asks before touching anything. A
 backup is written to `~/.cache/opencode-presets/backups/` before
 each write — no auto-pruning, so they pile up.
 
 `validate` checks the configured `opencode.json` and `tui.json`
-against OpenCode's current schemas. Use `validate config`,
+against OpenCode's current schemas; opencode 2 ignores `tui.json`, so
+`validate config` is the one that matters there. Use `validate config`,
 `validate tui`, or `validate all` to choose targets. Missing files
 are skipped in `all` mode; invalid files print labeled `where`,
 `what`, and `detail` lines and exit nonzero.
@@ -328,12 +336,10 @@ OPENCODE_CONFIG=/path/to/other-opencode.json opencode-presets install ...
 OPENCODE_PRESETS_CACHE=/some/cache opencode-presets install ...
 ```
 
-TUI presets target `~/.config/opencode/tui.json` by default. Override
-that path with `OPENCODE_TUI_CONFIG`:
-
-```sh
-OPENCODE_TUI_CONFIG=/path/to/tui.json opencode-presets install tui-disable-mouse
-```
+`@target: tui` presets write `~/.config/opencode/tui.json`, overridable with
+`OPENCODE_TUI_CONFIG`. Only opencode 1.x reads that file: opencode 2 keeps
+terminal settings in `cli.json` and imports `tui.json` once, only while
+`cli.json` does not exist yet. No shipped preset targets it.
 
 ## Writing your own preset
 
@@ -352,8 +358,8 @@ an absolute path.
 ```
 
 `@target` is optional and defaults to `config`, which writes
-`opencode.json`. Use `@target: tui` for TUI presets that write
-`tui.json`. A single install or remove operation cannot mix `config`
+`opencode.json`. `@target: tui` writes `tui.json` (opencode 1.x only, see
+above). A single install or remove operation cannot mix `config`
 and `tui` presets; run separate commands for those.
 
 `@fetch: <url> -> <dest> [sha256=hex]` downloads to the cache.
