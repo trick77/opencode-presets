@@ -16,6 +16,25 @@ npm run build && node dist/bin/opencode-presets.js install ./presets/<name>.conf
 Non-interactive → `--set NAME=VALUE`, `--set-env NAME=ENV_VAR` for secrets.
 Not piped `printf`/`yes` (works, but fragile).
 
+What opencode 2 makes of it: `opencode debug config` prints the normalized
+config. It asks the shared background service, which reads `OPENCODE_CONFIG`
+from *its* env and owns port 49374 → isolate with a temp `HOME`, then
+`opencode service set port <other>`, `OPENCODE_CONFIG=… opencode service restart`,
+`opencode debug config`, `opencode service stop`.
+
+## opencode 2
+
+- Bodies keep 1.x key shapes (`permission`, `agent`, `mcp.<name>`, `plugin`,
+  `provider`). V2 normalizes them in memory; user configs are 1.x-shaped, and
+  mixing V2 top-level keys into one is what the migration guide warns against.
+- No-ops in V2 → no presets: `lsp` (no LSP runtime), `share` (sharing
+  removed), `tui.json` (replaced by `cli.json`).
+- `external_directory` defaults to allow in V2 (1.x: ask).
+- `plugin` entries must be V2 plugins (`Plugin.define` default export); a 1.x
+  plugin fails to load with a warning only in the log.
+- MCP entry without `type` is dropped — a partial `mcp.<name>` preset
+  (`mcp-litellm-passthrough`) needs its base preset installed first.
+
 ## Conf format — headers
 
 Order irrelevant.
@@ -23,7 +42,8 @@ Order irrelevant.
 - `@name`, `@description`, `@author`, `@version`, `@path` — required.
 - `@description` — 1–2 sentences: what it does, what it touches. No rationale,
   history, troubleshooting. Cap 450 chars (tested).
-- `@target` — `config` (default, `opencode.json`) | `tui` (`tui.json`).
+- `@target` — `config` (default, `opencode.json`) | `tui` (`tui.json`, read
+  by opencode 1.x only).
 - `@mode` — `replace` (default) | `merge` | `merge-overwrite` | `append`.
 - `@fetch: URL -> dest [sha256=hex]` — repeatable.
 - `@pins: name version` — repeatable, one per pinned third-party artifact.
@@ -141,7 +161,8 @@ Matcher is whole-line glob; `*` matches any chars.
 
 ## Naming and placement
 
-- `presets/<category>-*.conf`: `permissions-`, `privacy-`, `mcp-`, `lsp-`, `tui-`.
+- `presets/<category>-*.conf`: `permissions-`, `mcp-`, `plugin-`, `skill-`,
+  `provider-`, `agent-`.
 - One concern per module; two unrelated paths → split.
 - `@path` deep enough that modules don't overlap — same path in `replace`
   collides.
@@ -188,8 +209,9 @@ New `@pins` → also add a lookup to `PIN_SOURCES` (`src/pin-sources.ts`). A tes
 fails without one, because Dependabot cannot see preset headers and
 `.github/workflows/pins.yaml` is the only thing that would catch drift.
 `npm run check-pins` runs it locally. Pin *ahead* of upstream = that source is
-wrong, not good news — lombok is on git tags because Maven Central's index and
-projectlombok.org's download page each reported a stale "latest".
+wrong, not good news — lombok (since dropped) needed git tags because Maven
+Central's index and projectlombok.org's download page each reported a stale
+"latest".
 
 `@fetch` → always `sha256=`, and version the dest filename; `fetchAsset` skips
 an existing dest, so reusing the filename makes a bump a no-op. Verify the hash

@@ -197,7 +197,6 @@ test('ships a litellm passthrough-header preset that writes a single header valu
 
 test('records the pinned third-party version of every preset that installs one', async () => {
   const expected: Record<string, Array<{ name: string; version: string }>> = {
-    'jdtls-lombok': [{ name: 'lombok', version: '1.18.48' }],
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.83' }],
     'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '0.9.0' }],
     'plugin-opencode-planify-german': [{ name: 'opencode-planify-german', version: '0.6.0' }],
@@ -272,9 +271,9 @@ test('ships a recommended bundle that expands to the read-only modules, then the
     'permissions-git-safe',
     'permissions-toolchain-info',
     'permissions-container-info',
+    'permissions-external-dir-ask',
     'permissions-deny-destructive',
     'permissions-deny-cluster-write',
-    'privacy-share-disabled',
   ]);
 
   const resolveRef = async (ref: string) => resolve(dir, ref + '.conf');
@@ -285,10 +284,8 @@ test('ships a recommended bundle that expands to the read-only modules, then the
   // shadowed by.
   const actions = await Promise.all(expanded.map(async (p) => {
     const { body } = await parseConf(p);
-    // Only the permission modules carry allow/deny maps. A scalar-bodied module
-    // like privacy-share-disabled has no ordering constraint here, and running
-    // Object.values over its string body would spell it out character by
-    // character.
+    // Only object bodies carry allow/deny maps; running Object.values over a
+    // scalar body would spell it out character by character.
     if (body === null || typeof body !== 'object' || Array.isArray(body)) return new Set<string>();
     return new Set(Object.values(body as Record<string, string>));
   }));
@@ -304,16 +301,15 @@ test('ships a recommended bundle that expands to the read-only modules, then the
   );
 });
 
-test('ships a share preset that turns opencode session sharing off', async () => {
+test('ships an external_directory ask preset', async () => {
   const dir = resolve(process.cwd(), 'presets');
-  const { meta, body } = await parseConf(resolve(dir, 'privacy-share-disabled.conf'));
+  const { meta, body } = await parseConf(resolve(dir, 'permissions-external-dir-ask.conf'));
 
-  assert.equal(meta.path, 'share');
-  // `replace`, not `merge`: `share` is a scalar, and installing the bundle has
-  // to win over a stale `"auto"` already sitting in the config.
-  assert.equal(meta.mode, 'replace');
-  // One of the three values the opencode schema enumerates for `share`.
-  assert.equal(body, 'disabled');
+  assert.equal(meta.path, 'permission');
+  // `merge`: a hand-written external_directory rule must survive the bundle.
+  assert.equal(meta.mode, 'merge');
+  // opencode 2 allows external_directory by default; 1.x asked.
+  assert.deepEqual(body, { external_directory: 'ask' });
 });
 
 test('every @include in a shipped preset points at another shipped preset', async () => {

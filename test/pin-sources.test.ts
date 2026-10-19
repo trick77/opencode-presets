@@ -42,12 +42,6 @@ describe('pin drift sources', () => {
       (e: unknown) => e instanceof UnknownPinError && /add one to src\/pin-sources\.ts/.test((e as Error).message),
     );
   });
-
-  test('lombok is looked up by git tag, not Maven Central or the download page', () => {
-    // Central reported 1.18.38 as latest while 1.18.46 was downloadable; the
-    // download page only linked jars to 1.18.44, making the pin look ahead.
-    assert.deepEqual(PIN_SOURCES['lombok'], { kind: 'github-tags', repo: 'projectlombok/lombok' });
-  });
 });
 
 describe('latestSemverTag', () => {
