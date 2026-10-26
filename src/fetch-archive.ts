@@ -6,7 +6,11 @@ import { gunzipSync } from 'node:zlib';
 export interface ArchiveSpec {
   url: string;
   dest: string;
-  sha256: string;
+  // sha256 of the tar after gunzip, not of the download. GitHub builds archives
+  // with `git archive` and has changed only the gzip layer so far (Jan 2023);
+  // the tar is what `git archive --format=tar --prefix=<repo>-<sha>/ <sha>`
+  // reproduces from any clone.
+  tarSha256: string;
   // Only this subdirectory of the archive lands in dest, its prefix stripped.
   subdir?: string | null;
 }
@@ -17,24 +21,27 @@ export interface ArchiveResult {
   files: number;
 }
 
-// Written last into dest, holding the archive's sha256. A dest without it is a
+// Written last into dest, holding tar sha256 and subdir. A dest without it is a
 // half-finished extract, not a cache hit.
 export const ARCHIVE_MARKER = '.opencode-presets-archive';
 
-export async function fetchArchive({ url, dest, sha256, subdir }: ArchiveSpec): Promise<ArchiveResult> {
-  if (await markerMatches(dest, sha256)) return { dest, cached: true, files: 0 };
+export async function fetchArchive({ url, dest: rawDest, tarSha256, subdir }: ArchiveSpec): Promise<ArchiveResult> {
+  // resolve() drops a trailing slash, which would otherwise put tmp inside dest.
+  const dest = resolve(rawDest);
+  const marker = `${tarSha256} ${subdir ?? ''}`.trim();
+  if (await markerMatches(dest, marker)) return { dest, cached: true, files: 0 };
 
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`fetch ${url} failed: HTTP ${res.status} ${res.statusText}`);
   }
-  const buf = Buffer.from(await res.arrayBuffer());
-  const actual = createHash('sha256').update(buf).digest('hex');
-  if (actual !== sha256) {
-    throw new Error(`sha256 mismatch for ${url}: expected ${sha256}, got ${actual}`);
+  const tar = gunzipSync(Buffer.from(await res.arrayBuffer()));
+  const actual = createHash('sha256').update(tar).digest('hex');
+  if (actual !== tarSha256) {
+    throw new Error(`tar-sha256 mismatch for ${url}: expected ${tarSha256}, got ${actual}`);
   }
 
-  const entries = selectEntries(readTar(gunzipSync(buf)), subdir ?? null, url);
+  const entries = selectEntries(readTar(tar), subdir ?? null, url);
   if (!entries.some(e => e.type === 'file')) {
     throw new Error(`archive ${url} has no files${subdir ? ` under ${subdir}/` : ''}`);
   }
@@ -54,7 +61,7 @@ export async function fetchArchive({ url, dest, sha256, subdir }: ArchiveSpec): 
         await writeFile(target, e.data, { mode: e.mode & 0o111 ? 0o755 : 0o644 });
       }
     }
-    await writeFile(join(tmp, ARCHIVE_MARKER), sha256 + '\n');
+    await writeFile(join(tmp, ARCHIVE_MARKER), marker + '\n');
     await rm(dest, { recursive: true, force: true });
     await rename(tmp, dest);
   } catch (e) {
@@ -64,9 +71,9 @@ export async function fetchArchive({ url, dest, sha256, subdir }: ArchiveSpec): 
   return { dest, cached: false, files: entries.filter(e => e.type === 'file').length };
 }
 
-async function markerMatches(dest: string, sha256: string): Promise<boolean> {
+async function markerMatches(dest: string, marker: string): Promise<boolean> {
   try {
-    return (await readFile(join(dest, ARCHIVE_MARKER), 'utf8')).trim() === sha256;
+    return (await readFile(join(dest, ARCHIVE_MARKER), 'utf8')).trim() === marker;
   } catch {
     return false;
   }
@@ -115,7 +122,8 @@ export function readTar(tar: Buffer): TarEntry[] {
     if (typeflag === '5') {
       entries.push({ path: name, type: 'dir', mode: 0o755, data: Buffer.alloc(0) });
     } else if (typeflag === '0' || typeflag === '\0' || typeflag === '7') {
-      entries.push({ path: name, type: 'file', mode: parseOctal(header.subarray(100, 108)), data: Buffer.from(data) });
+      // A view into the tar, no copy: most entries are filtered out by subdir.
+      entries.push({ path: name, type: 'file', mode: parseOctal(header.subarray(100, 108)), data });
     } else {
       throw new Error(`tar entry "${name}" has type "${typeflag}": only files and directories are accepted`);
     }
@@ -151,8 +159,10 @@ export function selectEntries(entries: TarEntry[], subdir: string | null, url: s
 
 function ustarName(header: Buffer): string {
   const name = cString(header.subarray(0, 100));
-  const magic = header.subarray(257, 262).toString('latin1');
-  const prefix = magic === 'ustar' ? cString(header.subarray(345, 500)) : '';
+  // POSIX ustar only ("ustar\0" + "00"). Old GNU ("ustar  \0") keeps atime,
+  // ctime and sparse data in these bytes, not a path prefix.
+  const posix = header.subarray(257, 265).toString('latin1') === 'ustar\u000000';
+  const prefix = posix ? cString(header.subarray(345, 500)) : '';
   return prefix ? `${prefix}/${name}` : name;
 }
 

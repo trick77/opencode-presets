@@ -99,7 +99,7 @@ describe('parseConfString — @include', () => {
   test('rejects a bundle that sets @fetch, @prompt, @pins or @requires-bin', () => {
     const cases: [string, RegExp][] = [
       ['// @fetch: https://x/y.jar -> {{cache}}/y.jar\n', /must not set @fetch/],
-      [`// @archive: https://x/y.tar.gz -> {{cache}}/y sha256=${'a'.repeat(64)}\n`, /must not set @archive/],
+      [`// @archive: https://x/y.tar.gz -> {{cache}}/y tar-sha256=${'a'.repeat(64)}\n`, /must not set @archive/],
       ['// @prompt: url | text | where\n', /must not set @prompt/],
       ['// @pins: lombok 1.18.46\n', /must not set @pins/],
       ['// @requires-bin: shellcheck\n', /must not set @requires-bin/],
@@ -232,30 +232,30 @@ describe('parseConfString — @archive', () => {
   const sha = 'AB'.repeat(32);
 
   test('parses url, dest, sha256 and subdir', () => {
-    const src = minimalHeader + `// @archive: https://example.com/a.tar.gz -> /tmp/a sha256=${sha} subdir=skills\n\n{}`;
+    const src = minimalHeader + `// @archive: https://example.com/a.tar.gz -> /tmp/a tar-sha256=${sha} subdir=skills\n\n{}`;
     const { meta } = parseConfString(src);
     assert.deepEqual(meta.archive, [
-      { url: 'https://example.com/a.tar.gz', dest: '/tmp/a', sha256: sha.toLowerCase(), subdir: 'skills' },
+      { url: 'https://example.com/a.tar.gz', dest: '/tmp/a', tarSha256: sha.toLowerCase(), subdir: 'skills' },
     ]);
   });
 
   test('subdir is optional', () => {
-    const src = minimalHeader + `// @archive: https://example.com/a.tar.gz -> /tmp/a sha256=${sha}\n\n{}`;
+    const src = minimalHeader + `// @archive: https://example.com/a.tar.gz -> /tmp/a tar-sha256=${sha}\n\n{}`;
     assert.equal(parseConfString(src).meta.archive[0].subdir, null);
   });
 
-  test('rejects an archive without sha256', () => {
+  test('rejects an archive without tar-sha256', () => {
     const src = minimalHeader + '// @archive: https://example.com/a.tar.gz -> /tmp/a\n\n{}';
-    assert.throws(() => parseConfString(src), /@archive needs sha256/);
+    assert.throws(() => parseConfString(src), /@archive needs tar-sha256/);
   });
 
   test('rejects a subdir that climbs out of the archive', () => {
-    const src = minimalHeader + `// @archive: https://example.com/a.tar.gz -> /tmp/a sha256=${sha} subdir=../x\n\n{}`;
+    const src = minimalHeader + `// @archive: https://example.com/a.tar.gz -> /tmp/a tar-sha256=${sha} subdir=../x\n\n{}`;
     assert.throws(() => parseConfString(src), /subdir must be a relative path/);
   });
 
   test('rejects an unknown option', () => {
-    const src = minimalHeader + `// @archive: https://example.com/a.tar.gz -> /tmp/a sha256=${sha} strip=2\n\n{}`;
+    const src = minimalHeader + `// @archive: https://example.com/a.tar.gz -> /tmp/a tar-sha256=${sha} strip=2\n\n{}`;
     assert.throws(() => parseConfString(src), /@archive must be/);
   });
 });

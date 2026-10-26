@@ -53,12 +53,23 @@ async function latestFor(source) {
       return latest;
     }
     case 'github-branch': {
+      // Newest commit on the branch that touches the installed path.
       const body = await getJson(
-        `https://api.github.com/repos/${source.repo}/commits/${source.branch}`, ghHeaders());
-      return body.sha;
+        `https://api.github.com/repos/${source.repo}/commits?sha=${source.branch}&path=${source.path}&per_page=1`,
+        ghHeaders());
+      if (!body.length) throw new Error(`${source.repo}: no commits touch ${source.path} on ${source.branch}`);
+      return body[0].sha;
     }
   }
   throw new Error(`unhandled pin source kind: ${source.kind}`);
+}
+
+// A pinned commit is current when it already contains the newest commit that
+// touched the path: compare reports the pin identical to it or ahead of it.
+async function branchCmp(source, pinned, latest) {
+  const body = await getJson(
+    `https://api.github.com/repos/${source.repo}/compare/${latest}...${pinned}`, ghHeaders());
+  return body.status === 'identical' || body.status === 'ahead' ? 0 : -1;
 }
 
 async function shippedPins() {
@@ -101,9 +112,8 @@ for (const pin of pins) {
 
   try {
     const latest = await latestFor(source);
-    // A commit SHA has no order: anything but the branch head is behind.
     const cmp = source.kind === 'github-branch'
-      ? (pin.version === latest ? 0 : -1)
+      ? await branchCmp(source, pin.version, latest)
       : compareVersions(pin.version, latest);
     // A pin ahead of upstream is not good news — it means this source is not
     // authoritative for that artifact, so its "ok" verdicts are worthless too.

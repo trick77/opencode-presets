@@ -4,8 +4,8 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, readdir, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { gzipSync } from 'node:zlib';
-import { ARCHIVE_MARKER, fetchArchive } from '../src/fetch-archive.js';
+import { gunzipSync, gzipSync } from 'node:zlib';
+import { ARCHIVE_MARKER, fetchArchive, readTar } from '../src/fetch-archive.js';
 
 type Entry = { name: string; type?: string; body?: string; mode?: number };
 
@@ -30,6 +30,7 @@ function tarOf(entries: Entry[]): Buffer {
 }
 
 const sha = (b: Buffer) => createHash('sha256').update(b).digest('hex');
+const tarSha = (tgz: Buffer) => sha(gunzipSync(tgz));
 
 const realFetch = globalThis.fetch;
 let requests = 0;
@@ -56,34 +57,34 @@ describe('fetchArchive', () => {
     const tgz = fixture();
     serve(tgz);
 
-    const r = await fetchArchive({ url: 'https://x/a.tar.gz', dest, sha256: sha(tgz), subdir: 'skills' });
+    const r = await fetchArchive({ url: 'https://x/a.tar.gz', dest, tarSha256: tarSha(tgz), subdir: 'skills' });
 
     assert.equal(r.cached, false);
     assert.equal(r.files, 2);
     assert.equal(await readFile(join(dest, 'tool/SKILL.md'), 'utf8'), 'skill');
     assert.ok((await stat(join(dest, 'tool/scripts/run.py'))).mode & 0o100, 'executable bit kept');
     assert.deepEqual((await readdir(dest)).sort(), [ARCHIVE_MARKER, 'tool']);
-    assert.equal((await readFile(join(dest, ARCHIVE_MARKER), 'utf8')).trim(), sha(tgz));
+    assert.equal((await readFile(join(dest, ARCHIVE_MARKER), 'utf8')).trim(), `${tarSha(tgz)} skills`);
   });
 
-  test('second run with the same sha256 is a cache hit, no download', async () => {
+  test('second run with the same tar-sha256 is a cache hit, no download', async () => {
     const dest = join(await mkdtemp(join(tmpdir(), 'archive-')), 'out');
     const tgz = fixture();
     serve(tgz);
-    await fetchArchive({ url: 'https://x/a.tar.gz', dest, sha256: sha(tgz), subdir: null });
+    await fetchArchive({ url: 'https://x/a.tar.gz', dest, tarSha256: tarSha(tgz), subdir: null });
 
     serve(tgz);
-    const r = await fetchArchive({ url: 'https://x/a.tar.gz', dest, sha256: sha(tgz), subdir: null });
+    const r = await fetchArchive({ url: 'https://x/a.tar.gz', dest, tarSha256: tarSha(tgz), subdir: null });
     assert.equal(r.cached, true);
     assert.equal(requests, 0);
   });
 
-  test('sha256 mismatch refuses and leaves no dest behind', async () => {
+  test('tar-sha256 mismatch refuses and leaves no dest behind', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'archive-'));
     serve(fixture());
     await assert.rejects(
-      fetchArchive({ url: 'https://x/a.tar.gz', dest: join(dir, 'out'), sha256: 'f'.repeat(64), subdir: null }),
-      /sha256 mismatch/,
+      fetchArchive({ url: 'https://x/a.tar.gz', dest: join(dir, 'out'), tarSha256: 'f'.repeat(64), subdir: null }),
+      /tar-sha256 mismatch/,
     );
     assert.deepEqual(await readdir(dir), []);
   });
@@ -99,7 +100,7 @@ describe('fetchArchive', () => {
       const tgz = tarOf([{ name: 'repo-abc/ok', body: 'ok' }, entry]);
       serve(tgz);
       await assert.rejects(
-        fetchArchive({ url: 'https://x/a.tar.gz', dest: join(dir, 'out'), sha256: sha(tgz), subdir: null }),
+        fetchArchive({ url: 'https://x/a.tar.gz', dest: join(dir, 'out'), tarSha256: tarSha(tgz), subdir: null }),
         re,
       );
       assert.deepEqual(await readdir(dir), []);
@@ -111,8 +112,52 @@ describe('fetchArchive', () => {
     const tgz = fixture();
     serve(tgz);
     await assert.rejects(
-      fetchArchive({ url: 'https://x/a.tar.gz', dest: join(dir, 'out'), sha256: sha(tgz), subdir: 'nope' }),
+      fetchArchive({ url: 'https://x/a.tar.gz', dest: join(dir, 'out'), tarSha256: tarSha(tgz), subdir: 'nope' }),
       /no files under nope\//,
     );
+  });
+
+  test('the hash covers the tar, so a recompressed download still installs', async () => {
+    const dest = join(await mkdtemp(join(tmpdir(), 'archive-')), 'out');
+    const tgz = fixture();
+    const recompressed = gzipSync(gunzipSync(tgz), { level: 1 });
+    assert.notEqual(sha(recompressed), sha(tgz));
+    serve(recompressed);
+    const r = await fetchArchive({ url: 'https://x/a.tar.gz', dest, tarSha256: tarSha(tgz), subdir: null });
+    assert.equal(r.cached, false);
+  });
+
+  test('a trailing slash on dest unpacks into dest, not into a temp dir inside it', async () => {
+    const dest = join(await mkdtemp(join(tmpdir(), 'archive-')), 'out');
+    const tgz = fixture();
+    serve(tgz);
+    await fetchArchive({ url: 'https://x/a.tar.gz', dest: dest + '/', tarSha256: tarSha(tgz), subdir: 'skills' });
+    assert.equal(await readFile(join(dest, 'tool/SKILL.md'), 'utf8'), 'skill');
+  });
+
+  test('a changed subdir re-extracts instead of counting as a cache hit', async () => {
+    const dest = join(await mkdtemp(join(tmpdir(), 'archive-')), 'out');
+    const tgz = fixture();
+    serve(tgz);
+    await fetchArchive({ url: 'https://x/a.tar.gz', dest, tarSha256: tarSha(tgz), subdir: null });
+
+    serve(tgz);
+    const r = await fetchArchive({ url: 'https://x/a.tar.gz', dest, tarSha256: tarSha(tgz), subdir: 'skills' });
+    assert.equal(r.cached, false);
+    assert.deepEqual((await readdir(dest)).sort(), [ARCHIVE_MARKER, 'tool']);
+  });
+});
+
+describe('readTar', () => {
+  test('an old-GNU header does not read atime bytes as a path prefix', () => {
+    const h = Buffer.alloc(512);
+    h.write('repo/a.md', 0, 'utf8');
+    h.write('0000644\0', 100, 'latin1');
+    h.write('00000000000\0', 124, 'latin1');
+    h.write('0', 156, 'latin1');
+    h.write('ustar  \0', 257, 'latin1');
+    h.write('14444444444\0', 345, 'latin1'); // atime in old GNU
+    const [e] = readTar(Buffer.concat([h, Buffer.alloc(1024)]));
+    assert.equal(e.path, 'repo/a.md');
   });
 });
