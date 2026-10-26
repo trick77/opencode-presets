@@ -6,6 +6,7 @@ import type { ConfMeta, FetchDirective } from './parse-conf.js';
 import { applyAtPath, removeAtPath, getAtPath } from './merge.js';
 import type { ApplyStats, RemoveStats, MergeMode } from './merge.js';
 import { fetchAsset } from './fetch-asset.js';
+import { fetchArchive } from './fetch-archive.js';
 import { checkDir, findOnPath, formatSetup } from './preconditions.js';
 import { recoverPromptValues } from './recover-prompts.js';
 import { backup } from './backup.js';
@@ -214,6 +215,16 @@ export async function runBatch(opts: RunBatchOpts): Promise<void> {
       try {
         const r = await fetchAsset(f as FetchDirective);
         console.log('  ' + c.ok('✓') + ' ' + (r.cached ? 'cached ' : 'fetched ') + c.meta(f.dest));
+      } catch (e) {
+        console.error(c.err('error: ') + (e instanceof Error ? e.message : String(e)));
+        process.exit(1);
+      }
+    }
+    for (const a of m.meta.archive) {
+      a.dest = expandCacheStr(a.dest, cacheDir);
+      try {
+        const r = await fetchArchive(a);
+        console.log('  ' + c.ok('✓') + ' ' + (r.cached ? 'cached ' : `unpacked ${r.files} files to `) + c.meta(a.dest));
       } catch (e) {
         console.error(c.err('error: ') + (e instanceof Error ? e.message : String(e)));
         process.exit(1);
@@ -441,11 +452,13 @@ function renderSummary(
     for (const line of agentOverrideWarnings(modules, existing)) lines.push(line);
 
     const totalFetches = modules.reduce((n, m) => n + m.meta.fetch.length, 0);
+    const totalArchives = modules.reduce((n, m) => n + m.meta.archive.length, 0);
     const totalPrompts = modules.reduce((n, m) => n + m.meta.prompts.length, 0);
     const totalPins = modules.reduce((n, m) => n + m.meta.pins.length, 0);
-    if (totalFetches > 0 || totalPrompts > 0 || totalPins > 0) {
+    if (totalFetches > 0 || totalArchives > 0 || totalPrompts > 0 || totalPins > 0) {
       const bits: string[] = [];
       if (totalFetches > 0) bits.push(`${totalFetches} fetch${totalFetches === 1 ? '' : 'es'}`);
+      if (totalArchives > 0) bits.push(`${totalArchives} archive${totalArchives === 1 ? '' : 's'}`);
       if (totalPrompts > 0) bits.push(`${totalPrompts} prompt${totalPrompts === 1 ? '' : 's'}`);
       if (totalPins > 0) bits.push(`${totalPins} pin${totalPins === 1 ? '' : 's'}`);
       lines.push('    ' + c.dim(bits.join(', ')));

@@ -52,6 +52,11 @@ async function latestFor(source) {
       if (!latest) throw new Error(`${source.repo}: no version-shaped tags on the first page`);
       return latest;
     }
+    case 'github-branch': {
+      const body = await getJson(
+        `https://api.github.com/repos/${source.repo}/commits/${source.branch}`, ghHeaders());
+      return body.sha;
+    }
   }
   throw new Error(`unhandled pin source kind: ${source.kind}`);
 }
@@ -96,7 +101,10 @@ for (const pin of pins) {
 
   try {
     const latest = await latestFor(source);
-    const cmp = compareVersions(pin.version, latest);
+    // A commit SHA has no order: anything but the branch head is behind.
+    const cmp = source.kind === 'github-branch'
+      ? (pin.version === latest ? 0 : -1)
+      : compareVersions(pin.version, latest);
     // A pin ahead of upstream is not good news — it means this source is not
     // authoritative for that artifact, so its "ok" verdicts are worthless too.
     // Both sources first tried for lombok (since dropped) failed exactly that way.
@@ -110,9 +118,11 @@ for (const pin of pins) {
 }
 
 const w = (s, n) => String(s).padEnd(n);
+// Commit SHAs shortened so the table keeps its columns.
+const v = s => /^[0-9a-f]{40}$/.test(String(s)) ? String(s).slice(0, 10) : s;
 console.log(`${w('PIN', 34)}${w('PINNED', 12)}${w('LATEST', 12)}${w('STATE', 15)}PRESET`);
 for (const r of rows) {
-  console.log(`${w(r.name, 34)}${w(r.version, 12)}${w(r.latest, 12)}${w(r.state, 15)}${r.preset}`);
+  console.log(`${w(r.name, 34)}${w(v(r.version), 12)}${w(v(r.latest), 12)}${w(r.state, 15)}${r.preset}`);
   if (r.detail) console.log(`  ${r.detail}`);
 }
 

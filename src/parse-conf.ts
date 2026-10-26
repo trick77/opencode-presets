@@ -7,6 +7,16 @@ export interface FetchDirective {
   sha256: string | null;
 }
 
+// A .tar.gz unpacked into a cache directory. sha256 is mandatory: unlike a
+// single @fetch file there is no way to eyeball hundreds of files.
+export interface ArchiveDirective {
+  url: string;
+  dest: string;
+  sha256: string;
+  // Only this subdirectory of the archive is kept.
+  subdir: string | null;
+}
+
 export type PromptType = 'text' | 'secret' | 'dir';
 
 export interface PromptDirective {
@@ -43,6 +53,7 @@ export interface ConfMeta {
   path: string;
   mode: MergeMode;
   fetch: FetchDirective[];
+  archive: ArchiveDirective[];
   prompts: PromptDirective[];
   pins: PinDirective[];
   // Executables this preset needs on PATH to be worth installing. Checked at
@@ -82,6 +93,7 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
     path: '',
     mode: 'replace',
     fetch: [],
+    archive: [],
     prompts: [],
     pins: [],
     requiresBin: [],
@@ -127,6 +139,9 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
           break;
         case 'fetch':
           meta.fetch.push(parseFetch(value, filePath));
+          break;
+        case 'archive':
+          meta.archive.push(parseArchive(value, filePath, i + 1));
           break;
         case 'prompt':
           meta.prompts.push(parsePrompt(value, filePath));
@@ -181,7 +196,8 @@ export function parseConfString(raw: string, filePath = '<inline>'): ParsedConf 
     // A bundle never reaches an applier, so these would be silently dropped.
     // Rejecting them beats letting an author think they took effect.
     for (const [key, present] of [
-      ['fetch', meta.fetch.length], ['prompt', meta.prompts.length], ['pins', meta.pins.length],
+      ['fetch', meta.fetch.length], ['archive', meta.archive.length],
+      ['prompt', meta.prompts.length], ['pins', meta.pins.length],
       ['requires-bin', meta.requiresBin.length],
     ] as const) {
       if (present) {
@@ -317,6 +333,32 @@ function parseFetch(value: string, filePath: string): FetchDirective {
     throw parseError(filePath, 0, `@fetch missing url or dest in "${value}"`);
   }
   return { url, dest, sha256 };
+}
+
+function parseArchive(value: string, filePath: string, line: number): ArchiveDirective {
+  const usage = `@archive must be "URL -> dest sha256=hex [subdir=path]", got "${value}"`;
+  const arrowIdx = value.indexOf('->');
+  if (arrowIdx === -1) throw parseError(filePath, line, usage);
+  const url = value.slice(0, arrowIdx).trim();
+  const [dest, ...opts] = value.slice(arrowIdx + 2).trim().split(/\s+/);
+
+  let sha256 = '';
+  let subdir: string | null = null;
+  for (const opt of opts) {
+    const m = opt.match(/^(sha256|subdir)=(.+)$/);
+    if (!m) throw parseError(filePath, line, usage);
+    if (m[1] === 'sha256') sha256 = m[2].toLowerCase();
+    else subdir = m[2];
+  }
+
+  if (!url || !dest) throw parseError(filePath, line, usage);
+  if (!/^[0-9a-f]{64}$/.test(sha256)) {
+    throw parseError(filePath, line, `@archive needs sha256=<64 hex chars>: nobody reviews hundreds of unpinned files, got "${value}"`);
+  }
+  if (subdir !== null && (subdir.startsWith('/') || subdir.split('/').some(p => p === '..' || p === '.'))) {
+    throw parseError(filePath, line, `@archive subdir must be a relative path inside the archive, got "${subdir}"`);
+  }
+  return { url, dest, sha256, subdir };
 }
 
 function stripJsonComments(text: string): string {

@@ -45,6 +45,12 @@ Order irrelevant.
   reads `tui.json`.
 - `@mode` — `replace` (default) | `merge` | `merge-overwrite` | `append`.
 - `@fetch: URL -> dest [sha256=hex]` — repeatable.
+- `@archive: URL -> destDir sha256=hex [subdir=path]` — repeatable. `.tar.gz`
+  unpacked into a cache dir (`src/fetch-archive.ts`): top-level dir stripped,
+  only `subdir` kept, sha256 mandatory. Links, devices, `..`, absolute paths →
+  whole archive refused. Cache hit = marker file in destDir with that sha256.
+  For skill repos without tags (`skill-diagram-design`): pin the commit SHA in
+  `@pins` (source kind `github-branch`).
 - `@pins: name version` — repeatable, one per pinned third-party artifact.
   Version must also appear in body or `@fetch` (tested).
 - `@prompt: name | type | help | default | setup` — repeatable; type
@@ -213,7 +219,7 @@ wrong, not good news — lombok (since dropped) needed git tags because Maven
 Central's index and projectlombok.org's download page each reported a stale
 "latest".
 
-`@fetch` → always `sha256=`, and version the dest filename; `fetchAsset` skips
+`@fetch`/`@archive` → always `sha256=`, and version the dest filename; `fetchAsset` skips
 an existing dest, so reusing the filename makes a bump a no-op. Verify the hash
 against a second source before committing.
 

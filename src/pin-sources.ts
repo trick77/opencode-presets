@@ -9,13 +9,16 @@
 export type PinSource =
   | { kind: 'npm'; pkg: string }
   | { kind: 'github-release'; repo: string }
-  | { kind: 'github-tags'; repo: string };
+  | { kind: 'github-tags'; repo: string }
+  // Repo without tags or releases: the pin is a commit SHA, current = branch head.
+  | { kind: 'github-branch'; repo: string; branch: string };
 
 export const PIN_SOURCES: Record<string, PinSource> = {
   '@playwright/mcp': { kind: 'npm', pkg: '@playwright/mcp' },
   'opencode-plugin-litellm-pricing': { kind: 'npm', pkg: 'opencode-plugin-litellm-pricing' },
   'opencode-planify-german': { kind: 'npm', pkg: 'opencode-planify-german' },
   'superpowers': { kind: 'github-release', repo: 'obra/superpowers' },
+  'diagram-design': { kind: 'github-branch', repo: 'cathrynlavery/diagram-design', branch: 'main' },
 };
 
 export class UnknownPinError extends Error {}

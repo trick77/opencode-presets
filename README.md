@@ -79,8 +79,8 @@ something outside your opencode config say so in their description.
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v7.0.0`) |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
-| `planify-german` | Bundle | — | The whole planify setup, which does nothing in parts: the `opencode-planify-german` plugin from npm (pinned to `1.0.1`, needs opencode 2), registering a `plan_render` tool that validates a plan JSON against a schema and renders a self-contained HTML file to `docs/plans/<TICKET>-<slug>.html`, and a `pr_summary` tool that writes a short task/problem/solution summary into the description of the Bitbucket Data Center PR of the current branch, opening it as a draft if none is open; the rules file that makes opencode answer in German with Swiss orthography (never the eszett character, always `ss`) and send every plan through `plan_render`; and the `planify` skill documenting the plan schema. Prompts for the Bitbucket URL and an HTTP access token with repository write, stored as plugin options in `opencode.json` (token in plain text; prefer `--set-env bitbucketToken=ENV_VAR`). Rules file and skill are fetched sha256-verified. Run `opencode service restart` after installing |
-| `skill-diagram-design` | Skill | append | Needs a clone of the repo on disk first — `git clone https://github.com/cathrynlavery/diagram-design ~/src/diagram-design`. Registers the `diagram-design` skill (editorial diagram types as self-contained HTML + SVG) by appending your clone's `skills/` dir to `skills.paths`; answer with that clone's `skills/` dir (`--set skillsDir=/Users/you/src/diagram-design/skills`); the install refuses if the dir is not there. Tracks `main` — the repo ships no tags. One-way: `remove` cannot undo an append preset that prompts, so uninstall by deleting the one `skills.paths` entry by hand |
+| `planify-german` | Bundle | — | The whole planify setup, which does nothing in parts: the `opencode-planify-german` plugin from npm (pinned to `1.0.1`, needs opencode 2), registering a `plan_render` tool that validates a plan JSON against a schema and renders a self-contained HTML file to `docs/plans/<TICKET>-<slug>.html`, and a `pr_summary` tool that writes a short task/problem/solution summary into the description of the Bitbucket Data Center PR of the current branch, opening it as a draft if none is open; the rules file that makes opencode answer in German with Swiss orthography (never the eszett character, always `ss`) and send every plan through `plan_render`; the `planify` skill documenting the plan schema; and `skill-diagram-design`, which draws the plan's diagrams. Prompts for the Bitbucket URL and an HTTP access token with repository write, stored as plugin options in `opencode.json` (token in plain text; prefer `--set-env bitbucketToken=ENV_VAR`). Rules file and skills are fetched sha256-verified. Run `opencode service restart` after installing |
+| `skill-diagram-design` | Skill | append | Registers the `diagram-design` skill (editorial diagram types as self-contained HTML + SVG). Downloads the archive of one pinned commit of [cathrynlavery/diagram-design](https://github.com/cathrynlavery/diagram-design), sha256-verified, unpacks its `skills/` dir to `<cache>/diagram-design-skills-<version>` and appends that to `skills.paths`. No clone. The repo ships no tags, so a new upstream commit means a new preset version. Coming from 0.3.x (clone + prompt): delete the old clone's `skills.paths` entry by hand, or the skill is registered twice |
 
 ### Bundles
 
@@ -363,6 +363,12 @@ Presets write `opencode.json` only. `@target: tui` is rejected:
 opencode 2 does not read `tui.json`.
 
 `@fetch: <url> -> <dest> [sha256=hex]` downloads to the cache.
+`@archive: <url> -> <dir> sha256=hex [subdir=path]` downloads a `.tar.gz`,
+checks its sha256 and unpacks it into the cache: the archive's top-level
+directory is stripped, and with `subdir` only that part is kept. Only regular
+files and directories are accepted; a link, device or path escaping the
+directory refuses the whole archive. Unpacked to a temp dir and renamed into
+place, so an interrupted install never looks complete.
 `@prompt: name | text|secret|dir | help | default | setup` collects input
 at install time; everything after the type is optional. Both repeatable.
 Reference fetched files as `{{cache}}/<name>` and prompt values as
