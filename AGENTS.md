@@ -45,6 +45,15 @@ Order irrelevant.
   reads `tui.json`.
 - `@mode` — `replace` (default) | `merge` | `merge-overwrite` | `append`.
 - `@fetch: URL -> dest [sha256=hex]` — repeatable.
+- `@archive: URL -> destDir tar-sha256=hex [subdir=path]` — repeatable.
+  `.tar.gz` unpacked into a cache dir (`src/fetch-archive.ts`): top-level dir
+  stripped, only `subdir` kept. Hash = sha256 of the tar after gunzip, not the
+  download: GitHub changed only gzip so far (Jan 2023), and
+  `git archive --format=tar --prefix=<repo>-<sha>/ <sha>` reproduces the tar
+  from any clone — that is the second source. Links, devices, `..`, absolute
+  paths → whole archive refused. Cache hit = marker in destDir with hash +
+  subdir. Tagless repo (`skill-diagram-design`): commit SHA in `@pins`, source
+  kind `github-branch` with `path` = what gets installed (head moves hourly).
 - `@pins: name version` — repeatable, one per pinned third-party artifact.
   Version must also appear in body or `@fetch` (tested).
 - `@prompt: name | type | help | default | setup` — repeatable; type
@@ -213,7 +222,7 @@ wrong, not good news — lombok (since dropped) needed git tags because Maven
 Central's index and projectlombok.org's download page each reported a stale
 "latest".
 
-`@fetch` → always `sha256=`, and version the dest filename; `fetchAsset` skips
+`@fetch` → always `sha256=` (`@archive`: `tar-sha256=`), and version the dest filename; `fetchAsset` skips
 an existing dest, so reusing the filename makes a bump a no-op. Verify the hash
 against a second source before committing.
 

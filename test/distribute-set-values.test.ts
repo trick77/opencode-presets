@@ -14,6 +14,7 @@ function mod(name: string, prompts: string[]): BatchModule {
     path: 'x',
     mode: 'replace',
     fetch: [],
+    archive: [],
     prompts: prompts.map(p => ({ name: p, type: 'text' as const, help: '' })),
     pins: [],
     requiresBin: [],

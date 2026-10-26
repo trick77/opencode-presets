@@ -86,26 +86,30 @@ test('every precondition that can refuse an install carries a setup hint', async
   }
 });
 
-test('the diagram-design skill preset takes a validated dir, and writes exactly it', async () => {
+test('the diagram-design skill preset unpacks a pinned commit and writes exactly its dir', async () => {
   const preset = resolve(process.cwd(), 'presets/skill-diagram-design.conf');
 
   const { meta, body } = await parseConf(preset);
 
   assert.equal(meta.path, 'skills.paths');
   assert.equal(meta.mode, 'append');
+  // No clone to ask for: the clone was the step nobody took, so the skill was
+  // never there and planify dropped every diagram.
+  assert.deepEqual(meta.prompts, []);
 
-  // Typed `dir`, so install resolves and stats it and refuses a path that is
-  // not there — the failure this replaces was a dead skills.paths entry that
-  // opencode ignores in silence.
-  assert.deepEqual(
-    meta.prompts.map((p) => ({ name: p.name, type: p.type })),
-    [{ name: 'skillsDir', type: 'dir' }],
-  );
+  assert.equal(meta.archive.length, 1);
+  const [a] = meta.archive;
+  const sha = meta.pins.find(p => p.name === 'diagram-design')?.version;
+  assert.ok(sha && a.url.includes(`/archive/${sha}.tar.gz`), 'archive URL is the pinned commit');
+  assert.equal(a.subdir, 'skills');
+  // Versioned with the preset's X.Y.Z so a bump supersedes the old entry (cacheFamily).
+  assert.equal(a.dest, `{{cache}}/diagram-design-skills-${meta.version}`);
+  assert.deepEqual(body, [a.dest]);
+});
 
-  // The prompted path is written verbatim, with no suffix bolted on. A body of
-  // `{{prompt:x}}/skills` would validate the clone root while writing a path
-  // nothing checked — the exact gap the `dir` type exists to close.
-  assert.deepEqual(body, ['{{prompt:skillsDir}}']);
+test('the planify bundle installs the diagram-design skill it draws with', async () => {
+  const { meta } = await parseConf(resolve(process.cwd(), 'presets/planify-german.conf'));
+  assert.ok(meta.includes.includes('skill-diagram-design'));
 });
 
 test('ships a litellm provider preset that points at a proxy URL, no models', async () => {
@@ -201,6 +205,7 @@ test('records the pinned third-party version of every preset that installs one',
     'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '1.0.0' }],
     'plugin-planify-german': [{ name: 'opencode-planify-german', version: '1.0.1' }],
     'plugin-superpowers': [{ name: 'superpowers', version: '7.0.0' }],
+    'skill-diagram-design': [{ name: 'diagram-design', version: '10cfad6a7be7f734a92d3d628e5fa344685d4f01' }],
   };
 
   for (const [name, pins] of Object.entries(expected)) {
@@ -213,13 +218,14 @@ test('every @pins version actually appears in the body or fetch it describes', a
   for (const file of await shippedPresets()) {
     const { meta, body } = await parseConf(file);
     const haystack = JSON.stringify(body) +
-      meta.fetch.map((f) => f.url + f.dest).join('');
+      meta.fetch.map((f) => f.url + f.dest).join('') +
+      meta.archive.map((a) => a.url + a.dest).join('');
 
     for (const pin of meta.pins) {
       assert.ok(
         haystack.includes(pin.version),
         `${meta.name}: @pins says ${pin.name} ${pin.version}, but that version ` +
-        'appears nowhere in the body or @fetch lines — one side was bumped without the other',
+        'appears nowhere in the body, @fetch or @archive lines — one side was bumped without the other',
       );
     }
   }
@@ -243,6 +249,12 @@ test('every @fetch destination is actually referenced by the preset it feeds', a
         `${meta.name}: @fetch writes ${f.dest}, but nothing in the body or @path ` +
         'points at it or at a directory containing it — the fetch was bumped ' +
         'without the reference that uses it',
+      );
+    }
+    for (const a of meta.archive) {
+      assert.ok(
+        haystack.includes(a.dest),
+        `${meta.name}: @archive unpacks to ${a.dest}, but nothing in the body or @path points at it`,
       );
     }
   }
