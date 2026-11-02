@@ -2,235 +2,100 @@
 
 ## Testing — never touch the real config
 
-Point the CLI at a temp target/cache. Never install/remove/reset against the
-user's real `~/.config/opencode/opencode.json`.
+`OPENCODE_CONFIG` + `OPENCODE_PRESETS_CACHE` → temp dir. Never
+install/remove/reset against `~/.config/opencode/opencode.json`.
 
-```sh
-rm -rf /tmp/oc-test && mkdir -p /tmp/oc-test/cache /tmp/oc-test/cfg
-export OPENCODE_CONFIG=/tmp/oc-test/cfg/opencode.json
-export OPENCODE_PRESETS_CACHE=/tmp/oc-test/cache
-npm run build && node dist/bin/opencode-presets.js install ./presets/<name>.conf
-```
+Non-interactive → `--set`/`--set-env`, not piped `printf`/`yes` (fragile).
 
-Non-interactive → `--set NAME=VALUE`, `--set-env NAME=ENV_VAR` for secrets.
-Not piped `printf`/`yes` (works, but fragile).
-
-What opencode 2 makes of it: `opencode debug config` prints the normalized
-config. It asks the shared background service, which reads `OPENCODE_CONFIG`
-from *its* env and owns port 49374 → isolate with a temp `HOME`, then
-`opencode service set port <other>`, `OPENCODE_CONFIG=… opencode service restart`,
-`opencode debug config`, `opencode service stop`.
+What opencode 2 makes of it: `opencode debug config` asks the shared
+background service, which reads `OPENCODE_CONFIG` from *its* env and owns port
+49374 → isolate with a temp `HOME`, `opencode service set port <other>`,
+`OPENCODE_CONFIG=… opencode service restart`, `opencode debug config`,
+`opencode service stop`.
 
 ## opencode 2
 
 - Bodies keep 1.x key shapes (`permission`, `agent`, `mcp.<name>`, `plugin`,
-  `provider`). V2 normalizes them in memory; user configs are 1.x-shaped, and
-  mixing V2 top-level keys into one is what the migration guide warns against.
-- No-ops in V2 → no presets: `lsp` (no LSP runtime), `share` (sharing
-  removed), `tui.json` (replaced by `cli.json`).
-- `external_directory` defaults to allow in V2 (1.x: ask).
+  `provider`); V2 normalizes in memory. Mixing V2 top-level keys into a
+  1.x-shaped user config is what the migration guide warns against.
 - `plugin` entries must be V2 plugins (`Plugin.define` default export); a 1.x
   plugin fails to load with a warning only in the log.
-- MCP entry without `type` is dropped — a partial `mcp.<name>` preset
-  (`mcp-litellm-passthrough`) needs its base preset installed first.
+- MCP entry without `type` is dropped → a partial `mcp.<name>` preset
+  (`mcp-litellm-passthrough`) needs its base preset first.
 
-## Conf format — headers
+## Writing presets
 
-Order irrelevant.
-
-- `@name`, `@description`, `@author`, `@version`, `@path` — required.
 - `@description` — 1–2 sentences: what it does, what it touches. No rationale,
-  history, troubleshooting. Cap 450 chars (tested).
-- `@target` — only `config` (no-op, older confs). `tui` rejected: V2 never
-  reads `tui.json`.
-- `@mode` — `replace` (default) | `merge` | `merge-overwrite` | `append`.
-- `@fetch: URL -> dest [sha256=hex]` — repeatable.
-- `@archive: URL -> destDir tar-sha256=hex [subdir=path]` — repeatable.
-  `.tar.gz` unpacked into a cache dir (`src/fetch-archive.ts`): top-level dir
-  stripped, only `subdir` kept. Hash = sha256 of the tar after gunzip, not the
-  download: GitHub changed only gzip so far (Jan 2023), and
-  `git archive --format=tar --prefix=<repo>-<sha>/ <sha>` reproduces the tar
-  from any clone — that is the second source. Links, devices, `..`, absolute
-  paths → whole archive refused. Cache hit = marker in destDir with hash +
-  subdir. Tagless repo (`skill-diagram-design`): commit SHA in `@pins`, source
-  kind `github-branch` with `path` = what gets installed (head moves hourly).
-- `@pins: name version` — repeatable, one per pinned third-party artifact.
-  Version must also appear in body or `@fetch` (tested).
-- `@prompt: name | type | help | default | setup` — repeatable; type
-  `text`/`secret`/`dir`. Help/default/setup optional; empty default field = no
-  default. Default forbidden for `secret`. Empty input → default.
-  Answer already in the config (read back via body template,
-  `src/recover-prompts.ts`) beats the default: Enter keeps it, secret never
-  echoed. Ambiguous → not offered, never guessed.
-  `dir` → value must be an existing dir; `~` expanded, relative rejected, install
-  aborts if missing. Resolved absolute path is what gets written.
-  `setup` = command that makes the dir exist. Mandatory on every `dir` prompt
-  (tested). Shown in the summary and on failure. Only the first four `|` split
-  fields — a hint may contain pipes.
-- `@requires-bin: name | setup` — repeatable. Executable that must be on PATH;
-  missing → install refuses, exit 1, nothing written. Name only, never a path.
-  Checked **before** the summary/confirm, so nobody confirms a dead install;
-  summary then prints `needs <bin> on PATH ✓` as a verified fact. `remove` skips
-  the check. `setup` = install command, mandatory (tested). Use when the preset
-  is inert without it.
-- `@include: <name|path>` — repeatable. Makes the module a **bundle**.
-- `@part-of: <bundle>` — preset inert alone. `list` hides it unless `--all`;
-  install/remove by name still work. Bundle must `@include` it (tested).
-  Not for members useful alone (`permissions-*`).
-
-## Bundles (`@include`)
-
-- Bundle = pure list. No `@path`, no body — parser rejects both. That's what
-  stops one reaching an applier: empty `@path` → `applyAtPath` treats the whole
-  config as the leaf and replaces it.
-- `expandIncludes` (`src/expand-includes.ts`) flattens to leaves only, keeps
-  declaration order, dedupes a leaf to its first position, throws on cycles.
-- Order is load-bearing for permissions — list deny modules last.
-- Never `@include` a module that runs project code (`permissions-build-tools`)
+  history, troubleshooting. Bundle's (shown before confirm) → what it is *not*.
+- `@archive` hashes the gunzipped tar: GitHub changed only gzip so far (Jan
+  2023); `git archive` from any clone is the second source.
+- `@requires-bin` only when the preset is inert without it. `@part-of` not for
+  members useful alone (`permissions-*`).
+- One concern per preset; two unrelated paths → split. Same `@path` in
+  `replace` collides → go deep enough.
+- Never `@include` a preset that runs project code (`permissions-build-tools`)
   in a defaults bundle: `python -c` routes around every deny rule.
-- `remove <bundle>` strips all members. No ownership tracking — say so.
-- A bundle's `@description` is printed before the confirm (the bundle itself
-  never reaches the summary). Use it to say what the bundle is *not*.
-- Say "preset" in anything a user reads. "Module" is the internal word for the
-  parsed struct; it must not appear in output, errors or descriptions.
+- Say "preset" in anything a user reads; "module" is internal only.
 
-## Warn, don't silently no-op
+## Behaviour that must not drift
 
-`merge` preserving an existing key is normal. Preserving one whose incoming
-value is `deny` means a guardrail did not install — name the key and say how to
-fix it (`findShadowedDenies` in `src/batch.ts`). Same for
-`agent.<name>.permission`: it beats global rules, so warn before the confirm
-(`agentOverrideWarnings`). Every such warning states the concrete command or
-key to change — never just that something happened.
-
-Body is JSONC, must parse to JSON matching the `@path` leaf: any shape for
-`replace`, object for `merge`/`merge-overwrite`, array for `append`.
-Substitutions in body and `@path`: `{{cache}}`, `{{prompt:<name>}}`.
-
-## Append supersedes a version bump
-
-`append` dedupes by deep equality, so `pkg@0.8.1` and `pkg@0.9.0` are two
-entries and opencode loads the plugin twice. An incoming `name@spec` entry
-therefore replaces every existing entry with the same package name, in place
-(`specName` in `src/merge.ts`), and stacked configs collapse on next install.
-`[name@spec, {options}]` tuples count as the same package as the plain string.
-Versioned `{{cache}}` fetch dests supersede too: same path with the `X.Y.Z`
-token blanked = same entry (`cacheFamily`). Only under the cache dir — we own
-it. Prompted dirs, hand-added paths, git URLs with credentials stay plain
-append — a heuristic there would delete unrelated entries. Renaming a dest
-family (`planify-*` → `opencode-planify-german-*`) still stacks once.
-`remove` is untouched: it still deletes only exact matches.
-
-## Merge stays additive
-
-`merge` MUST NOT overwrite existing keys — existing values win, only missing
-keys added. Users rely on this to keep hand-edits and other modules' rules.
-Need overwrite → `merge-overwrite`, called out in `@description`. Never turn
-`merge` into deep-merge-overwrite.
-
-## Backups
-
-One before every real write; skipped on byte-equal no-op. None for `--help`,
-`list`, declined prompts. Path `<cache>/backups/`, ms-precision UTC. No
-auto-pruning.
-
-## Dynamic-path removal
-
-`@path` with `{{prompt:…}}` → `remove` can't resolve it (prompts not
-re-collected). Reject, point at `opencode-presets reset <resolved-path>`.
-Never re-prompt — secrets must not be asked twice.
+- Warn, don't silently no-op: a `deny` that `merge` kept out = guardrail
+  missing. Every warning names the concrete command or key to change.
+- `merge` never overwrites: users rely on it to keep hand-edits and other
+  presets' rules. Need overwrite → `merge-overwrite`, said in `@description`.
+- Renaming a versioned `{{cache}}` dest family (`planify-*` →
+  `opencode-planify-german-*`) still stacks once in `append`.
+- Dynamic `@path` → `remove` points at `reset`, never re-prompts: secrets must
+  not be asked twice.
+- Backups: no auto-pruning, never under `~/.config/opencode/`.
 
 ## Permission rule curation
 
 Matcher is whole-line glob; `*` matches any chars.
 
 - No wildcard admitting a destructive subcommand/flag. `git branch *` exposes
-  `-D` → use `git branch --list *`. `find *` exposes `-delete`/`-exec` → skip.
+  `-D` → `git branch --list *`. `find *` exposes `-delete`/`-exec` → skip.
 - No in-place mutation flags (`sed -i`, `gawk -i inplace`, Mike Farah's
   `yq -i`) unless the description accepts the trade-off.
 - No interactive viewers (`less`, `more`, `vim`, `man`, `tldr`) or unbounded
   streamers (`docker stats` without `--no-stream`) — they hang the agent.
-- Harmless isn't enough; the agent must *also* invoke it often. No `whoami`,
+- Harmless isn't enough; agents must *also* call it often. No `whoami`,
   `uptime`, `hostname`, `uname` filler.
-
-### Deny rules
-
-- Hard block. No prompt, survives `--auto`. User can't approve past it →
-  over-matching is unfixable by them. Precise patterns only, never leading `*`.
-- `*` spans `/`. `rm -rf /*` also matches `rm -rf /tmp/x` → anchor exactly.
-- Disjoint from every shipped allow pattern (tested in
-  `test/builtin-presets.test.ts`). Last-match-wins + `merge` appends → otherwise
-  install order silently decides.
-- Broad hand-written allows → tell the user to install the deny preset last.
-- No `|` in a pattern. opencode tree-sitter-splits `&&`/`|`/`;` before matching,
+- Never `find`, `xargs`, `bash`, `sh`, `./<anything>` in allowlists.
+- Deny: user can't approve past it → over-matching is unfixable by them.
+  Never leading `*`; `rm -rf /*` also matches `rm -rf /tmp/x` → anchor exactly.
+- No `|` in a deny: opencode tree-sitter-splits `&&`/`|`/`;` before matching,
   so `curl * | sh` can never match.
-- Not compound-proof: env-var prefixes, `sh -c`, aliases slip through. Never call
-  a deny preset a security boundary — guardrail only.
-
-## Naming and placement
-
-- `presets/<category>-*.conf`, category = what it touches: `permissions-`,
-  `mcp-`, `plugin-`, `skill-`, `provider-`, `instructions-`, `agent-`. Bundles
-  are named for what they set up.
-- One concern per module; two unrelated paths → split.
-- `@path` deep enough that modules don't overlap — same path in `replace`
-  collides.
-
-## Code conventions
-
-- TypeScript `strict: true`, `tsc` → `dist/`. Source in `bin/`, `src/`.
-- Internal imports use `.js` extensions though source is `.ts` (NodeNext).
-- Edit → `npm run build` → `node dist/bin/...`.
-- Runtime deps are `chalk` + `ajv`. No more without justification.
-- Atomic writes: `writeFile(tmp); rename(tmp, final)`. Never write in place.
-- Paths via `node:path` `resolve`/`join`; never string-concat `/`.
-- User-facing errors prefixed `c.err('error: ')`. Exit 1 user error,
-  2 parse/internal.
 
 ## Don't add
 
-- `find`, `xargs`, `bash`, `sh`, `./<anything>` to permission allowlists.
-- Auto-update / auto-fetch for modules. User opts in.
-- Telemetry, or network calls beyond declared `@fetch` URLs.
-- A second prompt UI library — `src/ui.ts` handles it.
-- Backups under `~/.config/opencode/`; they belong in the cache dir.
+- Runtime deps beyond `chalk` + `ajv`, unjustified.
+- Auto-update / auto-fetch for presets. User opts in.
+- Telemetry, network calls beyond declared `@fetch`/`@archive` URLs.
+- A second prompt UI library (`src/ui.ts` has one).
 
-## package.json — supply chain
+## Supply chain
 
-No explicit human review → don't add:
+No explicit human review → not in package.json:
 
-- `optionalDependencies`, or a `dependencies` entry with a `git+`, `http(s):`,
-  `file:`, or tarball specifier. The May 2026 TanStack worm shipped its
-  payload via exactly this shape.
-- `prepare`, `preinstall`, `postinstall`, or other install-time lifecycle
-  scripts. Only `prepare`/`prepublishOnly` running `tsc` exist; don't broaden.
-- Floating ranges (`^`, `~`, `*`, `latest`) in deps. Pin exact so
-  `package-lock.json` is the only source of truth.
-- New runtime dependencies at all — see Code conventions.
+- `optionalDependencies`, or a `git+`/`http(s):`/`file:`/tarball dep. The May
+  2026 TanStack worm shipped its payload via exactly this shape.
+- Install-time lifecycle scripts beyond `prepare`/`prepublishOnly` → `tsc`.
+- Floating ranges (`^`, `~`, `*`, `latest`). Pin exact; lockfile is the truth.
 
-Third-party code in a preset (`plugin`, `mcp` command, `@fetch`) → pin exact
-version, git tag, or SHA, recorded in `@pins`. Unpinned or `@latest` → justify
-in `@description`. opencode caches by full spec string and never re-checks, so
-an unpinned ref freezes at first resolve; changing the string triggers the
-re-fetch.
+Third-party code in a preset → exact version, tag or SHA in `@pins`. Unpinned
+→ justify in `@description`. opencode caches by full spec string and never
+re-checks: an unpinned ref freezes at first resolve.
 
-New `@pins` → also add a lookup to `PIN_SOURCES` (`src/pin-sources.ts`). A test
-fails without one, because Dependabot cannot see preset headers and
-`.github/workflows/pins.yaml` is the only thing that would catch drift.
-`npm run check-pins` runs it locally. Pin *ahead* of upstream = that source is
-wrong, not good news — lombok (since dropped) needed git tags because Maven
-Central's index and projectlombok.org's download page each reported a stale
-"latest".
+Pin *ahead* of upstream in `check-pins` = that `PIN_SOURCES` lookup is wrong,
+not good news — lombok (since dropped) needed git tags because Maven Central
+and projectlombok.org each reported a stale "latest".
 
-`@fetch` → always `sha256=` (`@archive`: `tar-sha256=`), and version the dest filename; `fetchAsset` skips
-an existing dest, so reusing the filename makes a bump a no-op. Verify the hash
-against a second source before committing.
+`@fetch` → always `sha256=` and a versioned dest filename: `fetchAsset` skips
+an existing dest, so a reused filename makes a bump a no-op. Verify the hash
+against a second source.
 
-`@fetch` of a file in this repo (`rules/*`) → two PRs. Content first; its commit
-SHA does not exist to pin until merged. Second PR bumps `@version`, dest
-filename, URL commit and `sha256` together. Editing the file alone leaves the
-preset serving old bytes and `npm test` stays green — `npm run check-fetch-hashes`
-is what catches it (weekly in `pins.yaml`, not a per-PR gate).
-
-`npm publish` must pass `--provenance` — SLSA attestation, verifiable via
-`npm audit signatures`.
+`@fetch` of a file in this repo (`rules/*`) → two PRs: content first (its
+commit SHA must exist to pin), then `@version`, dest filename, URL commit and
+`sha256` together. Editing the file alone serves old bytes with `npm test`
+green — only `check-fetch-hashes` (weekly in `pins.yaml`) catches it.
