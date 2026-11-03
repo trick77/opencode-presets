@@ -87,6 +87,10 @@ Third-party code in a preset → exact version, tag or SHA in `@pins`. Unpinned
 → justify in `@description`. opencode caches by full spec string and never
 re-checks: an unpinned ref freezes at first resolve.
 
+Patch/minor pin bumps ship unreviewed; 7-day cooldown is the only review
+(hijacks get pulled within days). Bump needs judgment → `manual` in
+`PIN_SOURCES`.
+
 Pin *ahead* of upstream in `check-pins` = that `PIN_SOURCES` lookup is wrong,
 not good news — lombok (since dropped) needed git tags because Maven Central
 and projectlombok.org each reported a stale "latest".
