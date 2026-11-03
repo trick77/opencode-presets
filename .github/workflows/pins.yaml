@@ -33,9 +33,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # The PAT so bump-pins can push pins/* branches; falls back so the
-          # checks still run while the secret is missing.
-          token: ${{ secrets.PINS_TOKEN || github.token }}
+          # PINS_TOKEN can push to master (admin bypass); npm ci, build and
+          # tests run dependency code, so no token is left in .git/config.
+          # bump-pins passes it to the push alone.
+          persist-credentials: false
           # bump-pins checks who authored a pins/* branch's commits since master.
           fetch-depth: 0
       - uses: actions/setup-node@v7

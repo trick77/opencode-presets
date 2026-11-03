@@ -57,7 +57,10 @@ export function pickEligible(
     .filter(c => PLAIN_VERSION.test(c.version) && compareVersions(c.version, pinned) > 0)
     .sort((x, y) => compareVersions(x.version, y.version));
   const ripe = newer.filter(c => c.date.getTime() <= cutoff);
-  const eligible = ripe.at(-1) ?? null;
+  // Like Dependabot: a ripe release in the current major first, so a major
+  // waiting for review never holds back a patch. The major comes next run.
+  const major = pinned.split('.')[0];
+  const eligible = ripe.filter(c => c.version.split('.')[0] === major).at(-1) ?? ripe.at(-1) ?? null;
   const pending = newer.filter(c => c.date.getTime() > cutoff &&
     (!eligible || compareVersions(c.version, eligible.version) > 0));
   const waitingUntil = pending.length
@@ -115,9 +118,14 @@ export function rewriteConf(text: string, change: PinChange, bump: BumpType): st
     }
   });
 
-  const moved = replaceToken(body, change.from, change.to);
-  if (moved.count === 0) throw new Error(`${change.preset}: body never mentions ${change.from}`);
-  return [...header, moved.text].join('\n');
+  // Only the pinned package's own spec: `name@1.2.3` (npm) or
+  // `name.git#v1.2.3` (git tag). An unrelated field at the same version stays.
+  let count = 0;
+  const spec = new RegExp(
+    `(${escapeRegExp(change.name)}(?:@|(?:\\.git)?#))(v?)${escapeRegExp(change.from)}(?![\\w-]|\\.\\d)`, 'g');
+  const moved = body.replace(spec, (_m, pre: string, v: string) => { count++; return `${pre}${v}${change.to}`; });
+  if (count === 0) throw new Error(`${change.preset}: body has no ${change.name}@${change.from} or ${change.name}.git#v${change.from}`);
+  return [...header, moved].join('\n');
 }
 
 // README table row of the preset, or of the first bundle it is part of when

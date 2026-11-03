@@ -47,6 +47,14 @@ describe('pickEligible', () => {
     assert.equal(r.waitingUntil?.toISOString(), new Date(ago(2).getTime() + 7 * DAY).toISOString());
   });
 
+  test('a ripe patch in the current major goes before a ripe major', () => {
+    const r = pickEligible([
+      { version: '7.0.5', date: ago(9) },
+      { version: '8.0.0', date: ago(20) },
+    ], '7.0.0', now);
+    assert.equal(r.eligible?.version, '7.0.5');
+  });
+
   test('nothing ripe → no bump, says when', () => {
     const r = pickEligible([{ version: '7.0.1', date: ago(3) }], '7.0.0', now);
     assert.equal(r.eligible, null);
@@ -98,7 +106,14 @@ describe('rewriteConf', () => {
 
   test('refuses a body that never mentions it', () => {
     const src = PRESET.replace('demo@0.0.83', 'demo@latest');
-    assert.throws(() => rewriteConf(src, change, 'patch'), /body never mentions/);
+    assert.throws(() => rewriteConf(src, change, 'patch'), /body has no demo@0\.0\.83/);
+  });
+
+  test('leaves an unrelated value at the same version alone', () => {
+    const src = PRESET.replace('"note"', '"other": "x@0.0.83", "v": "0.0.83", "note"');
+    const out = rewriteConf(src, change, 'patch');
+    assert.match(out, /"x@0\.0\.83", "v": "0\.0\.83"/);
+    assert.match(out, /"demo@0\.0\.84"/);
   });
 
   test('refuses @fetch / @archive presets', () => {
