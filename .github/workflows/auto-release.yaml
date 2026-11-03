@@ -67,5 +67,12 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -q -am "chore: release $v"
           git tag "v$v"
+          # Another merge landed since checkout: its own run (queued behind
+          # this one) releases both. Pushing would only be rejected.
+          git fetch -q origin master
+          if [ "$(git rev-parse origin/master)" != "$(git rev-parse HEAD~1)" ]; then
+            echo "master moved since checkout; the run for the newer merge releases"
+            exit 0
+          fi
           git push --atomic origin HEAD:refs/heads/master "refs/tags/v$v"
           { echo "Released v$v:"; echo '```'; echo "$commits"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

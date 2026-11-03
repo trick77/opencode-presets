@@ -134,6 +134,12 @@ export async function collectPins(now = new Date()) {
         continue;
       }
       const { eligible, waitingUntil } = pickEligible(dated, pin.version, now);
+      if (!eligible && !waitingUntil) {
+        // Behind, yet nothing newer is a plain, non-deprecated release: the
+        // bot will never move it, so a human has to look.
+        rows.push({ ...pin, latest, state: 'MANUAL', manual: 'no plain, non-deprecated release newer than the pin' });
+        continue;
+      }
       if (!eligible) {
         rows.push({ ...pin, latest, state: 'COOLDOWN', waitingUntil });
         continue;

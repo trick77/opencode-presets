@@ -97,7 +97,7 @@ function captureString(t: string, e: string, found: Map<string, string | null>):
   });
 }
 
-function escapeRegExp(s: string): string {
+export function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 

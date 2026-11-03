@@ -4,7 +4,9 @@
 // Dependabot reads package.json; it cannot see a version recorded in a preset
 // header comment. This closes that gap. Run after `npm run build`.
 //
-//   node scripts/check-pins.mjs
+//   node scripts/check-pins.mjs [--out rows.json]
+//
+// --out saves the rows for bump-pins.mjs --rows, so both act on one lookup.
 //
 // A pin that is merely behind is not a failure: bump-pins.mjs opens the PR, or
 // the MANUAL row says why a human has to. Red means the check itself is wrong.
@@ -12,11 +14,13 @@
 // Exit 0 = nothing broken. Exit 1 = AHEAD? or NO SOURCE (a PIN_SOURCES entry
 // is wrong or missing). Exit 2 = a lookup failed (network, rate limit) — re-run.
 
-import { appendFile } from 'node:fs/promises';
+import { appendFile, writeFile } from 'node:fs/promises';
 import { PIN_SOURCES } from '../dist/src/pin-sources.js';
 import { collectPins, short, day } from './pins-lib.mjs';
 
 const rows = await collectPins();
+const outIdx = process.argv.indexOf('--out');
+if (outIdx !== -1) await writeFile(process.argv[outIdx + 1], JSON.stringify(rows));
 if (rows.length === 0) {
   console.log('no @pins in any shipped preset');
   process.exit(0);

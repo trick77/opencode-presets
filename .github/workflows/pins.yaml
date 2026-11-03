@@ -6,7 +6,8 @@ name: pins
 #
 # A pin merely behind is not red: bump-pins.mjs opens a PR once the upstream
 # release is 7 days old (patch/minor auto-merge, majors wait for a human), and
-# MANUAL pins show as warnings. Red = a check is broken or a bump failed.
+# MANUAL pins show as warnings. Red = a check is broken, a bump failed, or
+# PINS_TOKEN is missing (bumps can't happen without it, so that is not green).
 #
 # Needs secret PINS_TOKEN: fine-grained PAT, this repo only, Contents + Pull
 # requests read/write. A PR opened with the workflow token never triggers
@@ -35,6 +36,8 @@ jobs:
           # The PAT so bump-pins can push pins/* branches; falls back so the
           # checks still run while the secret is missing.
           token: ${{ secrets.PINS_TOKEN || github.token }}
+          # bump-pins checks who authored a pins/* branch's commits since master.
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -49,7 +52,7 @@ jobs:
         # one failing must not hide the others.
       - run: node scripts/check-fetch-hashes.mjs
         if: always()
-      - run: node scripts/check-pins.mjs
+      - run: node scripts/check-pins.mjs --out "$RUNNER_TEMP/pins.json"
         if: always()
         env:
           # Raises the anonymous GitHub API rate limit. Read-only, public data.
@@ -59,7 +62,6 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          node scripts/bump-pins.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+          node scripts/bump-pins.mjs --rows "$RUNNER_TEMP/pins.json" ${{ inputs.dry_run && '--dry-run' || '' }}
         env:
           GH_TOKEN: ${{ secrets.PINS_TOKEN }}
-          GITHUB_TOKEN: ${{ github.token }}

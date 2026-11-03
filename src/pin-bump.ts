@@ -6,6 +6,7 @@
 // shape changed must fail the bump loudly, not ship a half-edited preset.
 
 import { compareVersions } from './pin-sources.js';
+import { escapeRegExp } from './recover-prompts.js';
 
 export type BumpType = 'major' | 'minor' | 'patch';
 
@@ -65,11 +66,9 @@ export function pickEligible(
   return { eligible, waitingUntil };
 }
 
-const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 // A version as a whole token: not part of 10.0.83 or 0.0.831, optional v kept.
 function versionToken(v: string): RegExp {
-  return new RegExp(`(?<![\\w.])(v?)${esc(v)}(?![\\w-]|\\.\\d)`, 'g');
+  return new RegExp(`(?<![\\w.])(v?)${escapeRegExp(v)}(?![\\w-]|\\.\\d)`, 'g');
 }
 
 function replaceToken(text: string, from: string, to: string): { text: string; count: number } {

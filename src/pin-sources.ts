@@ -3,7 +3,7 @@
 // @pins live in preset headers — a comment format no dependency bot can parse —
 // so Dependabot covers package.json and nothing else. Without this map a pinned
 // artifact can sit years behind and no CI run would notice. The lookup itself
-// is in scripts/check-pins.mjs; this file stays pure so tests can cover the
+// is in scripts/pins-lib.mjs; this file stays pure so tests can cover the
 // parts that actually broke without touching the network.
 
 export type PinSource = (
