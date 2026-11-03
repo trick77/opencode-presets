@@ -162,3 +162,24 @@ test('every auto-bumpable shipped pin survives a dry bump', async () => {
   }
   assert.ok(checked >= 3, `only ${checked} auto-bumpable pins found`);
 });
+
+// The bot edits only the preset, its README row and the expected-pins table.
+// A test quoting the shipped spec elsewhere fails every bump PR it opens.
+test('no test hard-codes the installed spec of an auto-bumpable pin', async () => {
+  const dir = resolve(process.cwd(), 'presets');
+  const testDir = resolve(process.cwd(), 'test');
+  // This file's fixtures are synthetic and never bumped.
+  const tests = await Promise.all((await readdir(testDir)).filter(n => n.endsWith('.ts') && n !== 'pin-bump.test.ts')
+    .map(async n => [n, await readFile(resolve(testDir, n), 'utf8')] as const));
+  for (const file of (await readdir(dir)).filter(n => n.endsWith('.conf'))) {
+    const { meta } = await parseConf(resolve(dir, file));
+    for (const pin of meta.pins) {
+      if (manualReason(pinSourceFor(pin.name))) continue;
+      for (const spec of [`${pin.name}@${pin.version}`, `#v${pin.version}`]) {
+        for (const [name, text] of tests) {
+          assert.ok(!text.includes(spec), `${name} hard-codes ${spec}; derive it from meta.pins`);
+        }
+      }
+    }
+  }
+});
