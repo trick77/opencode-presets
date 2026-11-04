@@ -206,7 +206,7 @@ test('records the pinned third-party version of every preset that installs one',
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.83' }],
     'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '1.0.0' }],
     'plugin-planify-german': [{ name: 'opencode-planify-german', version: '1.0.1' }],
-    'plugin-superpowers': [{ name: 'superpowers', version: '7.0.0' }],
+    'plugin-superpowers': [{ name: 'superpowers', version: '7.0.1' }],
     'skill-diagram-design': [{ name: 'diagram-design', version: '10cfad6a7be7f734a92d3d628e5fa344685d4f01' }],
   };
 
