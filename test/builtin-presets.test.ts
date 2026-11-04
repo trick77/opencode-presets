@@ -50,7 +50,9 @@ test('ships a litellm plugin preset that appends the runtime-discovery plugin', 
   assert.equal(meta.name, 'plugin-litellm-pricing');
   assert.equal(meta.path, 'plugin');
   assert.equal(meta.mode, 'append');
-  assert.deepEqual(body, ['opencode-plugin-litellm-pricing@1.0.0']);
+  // Version from @pins: bump-pins.mjs moves @pins and the expected-pins table,
+  // not literals scattered through other tests.
+  assert.deepEqual(body, [`opencode-plugin-litellm-pricing@${meta.pins[0].version}`]);
 });
 
 test('only the presets that drive an external binary declare @requires-bin', async () => {

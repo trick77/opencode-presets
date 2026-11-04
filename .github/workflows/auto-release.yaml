@@ -1,0 +1,88 @@
+name: auto-release
+
+# Cuts a patch release when a pins/* PR (scripts/bump-pins.mjs) merges, so a
+# bumped pin reaches users without a hand release. Pushes `chore: release` to
+# master and the v* tag; the tag fires release.yaml, which publishes.
+#
+# Only when every commit since the last tag is a dependency bump (deps/ci).
+# Anything else on master is unreleased human work: shipping it as a side
+# effect of a pin bump is not this job's call, so it skips and you release by
+# hand — the pin goes out with it.
+#
+# PINS_TOKEN (see pins.yaml) pushes: a tag pushed with the workflow token does
+# not trigger release.yaml. The push to master relies on admin bypass of the
+# required checks; ci.yaml runs on it and release.yaml runs npm test again.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >-
+      github.event.pull_request.merged &&
+      startsWith(github.event.pull_request.head.ref, 'pins/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: master
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Release if only dependency bumps are unreleased
+        env:
+          PUSH_URL: https://x-access-token:${{ secrets.PINS_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # Master can move between checkout and push (a Dependabot merge, a
+          # second pins PR); start over on the new master rather than give up,
+          # since not every merge starts this workflow.
+          for attempt in 1 2 3; do
+            git fetch -q --tags origin master
+            git checkout -q --force --detach FETCH_HEAD
+            last=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD)
+            pkg=$(node -p "require('./package.json').version")
+            if [ "v$pkg" != "$last" ]; then
+              # e.g. release.yaml failed and dropped its tag, leaving the
+              # release commit behind. Every later bump would skip; say so.
+              echo "::error::package.json is $pkg but the last tag is $last: a release is half-done. Finish or revert it by hand."
+              exit 1
+            fi
+            commits=$(git log --format='%h %s' "$last..HEAD")
+            if [ -z "$commits" ]; then
+              echo "nothing on master since $last"
+              exit 0
+            fi
+            others=$(printf '%s\n' "$commits" | grep -v -E '^[0-9a-f]+ (deps|ci)(\([^)]*\))?: ' || true)
+            if [ -n "$others" ]; then
+              echo "::warning::master has non-dependency commits since $last. Not released, release by hand."
+              { echo "Not released: unreleased commits since $last that are not dependency bumps:"; echo '```'; echo "$others"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            npm version patch --no-git-tag-version >/dev/null
+            v=$(node -p "require('./package.json').version")
+            git commit -q -am "chore: release $v"
+            git tag "v$v"
+            if git push -q --atomic "$PUSH_URL" HEAD:refs/heads/master "refs/tags/v$v"; then
+              { echo "Released v$v:"; echo '```'; echo "$commits"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "push rejected (master moved?), retrying on the new master"
+            git tag -d "v$v" >/dev/null
+          done
+          echo "::error::master kept moving; release by hand"
+          exit 1

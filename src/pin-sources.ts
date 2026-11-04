@@ -3,25 +3,40 @@
 // @pins live in preset headers — a comment format no dependency bot can parse —
 // so Dependabot covers package.json and nothing else. Without this map a pinned
 // artifact can sit years behind and no CI run would notice. The lookup itself
-// is in scripts/check-pins.mjs; this file stays pure so tests can cover the
+// is in scripts/pins-lib.mjs; this file stays pure so tests can cover the
 // parts that actually broke without touching the network.
 
-export type PinSource =
+export type PinSource = (
   | { kind: 'npm'; pkg: string }
   | { kind: 'github-release'; repo: string }
   | { kind: 'github-tags'; repo: string }
   // Repo without tags or releases: the pin is a commit SHA. Behind only when a
   // commit touching `path` on `branch` is missing from it — the branch head
   // moves hourly with release chores that change nothing we install.
-  | { kind: 'github-branch'; repo: string; branch: string; path: string };
+  | { kind: 'github-branch'; repo: string; branch: string; path: string }
+) & {
+  // Set → scripts/bump-pins.mjs never bumps it; drift is reported for a human.
+  manual?: string;
+};
 
 export const PIN_SOURCES: Record<string, PinSource> = {
   '@playwright/mcp': { kind: 'npm', pkg: '@playwright/mcp' },
   'opencode-plugin-litellm-pricing': { kind: 'npm', pkg: 'opencode-plugin-litellm-pricing' },
-  'opencode-planify-german': { kind: 'npm', pkg: 'opencode-planify-german' },
+  'opencode-planify-german': {
+    kind: 'npm', pkg: 'opencode-planify-german',
+    manual: 'its rules and skill @fetch files move with the plugin version',
+  },
   'superpowers': { kind: 'github-release', repo: 'obra/superpowers' },
   'diagram-design': { kind: 'github-branch', repo: 'cathrynlavery/diagram-design', branch: 'main', path: 'skills' },
 };
+
+// Why a pin is never bumped by the bot, or null when it may be.
+export function manualReason(source: PinSource): string | null {
+  if (source.manual) return source.manual;
+  if (source.kind === 'github-branch') return 'commit pin: new @archive tar-sha256 needs a second source';
+  if (source.kind === 'github-tags') return 'tags carry no date, so no cooldown is possible';
+  return null;
+}
 
 export class UnknownPinError extends Error {}
 

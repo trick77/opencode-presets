@@ -2,17 +2,27 @@ name: pins
 
 # Dependabot watches package.json and the workflows. Nothing watches the @pins
 # in presets/*.conf — they are header comments in a custom format, invisible to
-# every ecosystem parser. This job is what notices when one falls behind.
+# every ecosystem parser. This job reports them and opens the bump PRs.
 #
-# Scheduled rather than per-PR on purpose: it makes live network calls, and a
-# new upstream release is not a reason to fail an unrelated pull request.
-# A failing run here is the signal; nothing is opened or committed automatically.
+# A pin merely behind is not red: bump-pins.mjs opens a PR once the upstream
+# release is 7 days old (patch/minor auto-merge, majors wait for a human), and
+# MANUAL pins show as warnings. Red = a check is broken, a bump failed, or
+# PINS_TOKEN is missing (bumps can't happen without it, so that is not green).
+#
+# Needs secret PINS_TOKEN: fine-grained PAT, this repo only, Contents + Pull
+# requests read/write. A PR opened with the workflow token never triggers
+# ci.yaml, so the required checks would never report and auto-merge would hang.
 
 on:
   schedule:
     # Mondays, same day as the Dependabot run.
     - cron: '0 8 * * 1'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Print the bumps, push nothing
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -22,22 +32,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # PINS_TOKEN can push to master (admin bypass); npm ci, build and
+          # tests run dependency code, so no token is left in .git/config.
+          # bump-pins passes it to the push alone.
+          persist-credentials: false
+          # bump-pins checks who authored a pins/* branch's commits since master.
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npm run build
+      - id: build
+        run: npm run build
         # Local-only, no network. It rides along here rather than in `npm test`
         # because updating a first-party @fetch takes two PRs — the content must
         # be merged before its commit SHA exists to pin — so a mismatch between
-        # them is expected, not a broken build. always(): a pin drift and a
-        # stale hash are independent signals; seeing only the first hides the
-        # second.
+        # them is expected, not a broken build. always(): independent signals;
+        # one failing must not hide the others.
       - run: node scripts/check-fetch-hashes.mjs
         if: always()
-      - run: node scripts/check-pins.mjs
+      - run: node scripts/check-pins.mjs --out "$RUNNER_TEMP/pins.json"
         if: always()
         env:
           # Raises the anonymous GitHub API rate limit. Read-only, public data.
           GITHUB_TOKEN: ${{ github.token }}
+      - name: Open bump PRs
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          node scripts/bump-pins.mjs --rows "$RUNNER_TEMP/pins.json" ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          GH_TOKEN: ${{ secrets.PINS_TOKEN }}

@@ -1,162 +1,78 @@
 #!/usr/bin/env node
-// Report @pins in shipped presets that have fallen behind upstream.
+// Report every @pins in shipped presets against upstream.
 //
 // Dependabot reads package.json; it cannot see a version recorded in a preset
-// header comment. This closes that gap. Run after `npm run build` — it imports
-// the compiled parser rather than reimplementing the .conf format.
+// header comment. This closes that gap. Run after `npm run build`.
 //
-//   node scripts/check-pins.mjs
+//   node scripts/check-pins.mjs [--out rows.json]
 //
-// Exit 0 = every pin current. Exit 1 = drift, or a pin with no registered
-// source. Exit 2 = a lookup failed (network, rate limit), which is not drift
-// and should not be reported as if it were.
+// --out saves the rows for bump-pins.mjs --rows, so both act on one lookup.
+//
+// A pin that is merely behind is not a failure: bump-pins.mjs opens the PR, or
+// the MANUAL row says why a human has to. Red means the check itself is wrong.
+//
+// Exit 0 = nothing broken. Exit 1 = AHEAD? or NO SOURCE (a PIN_SOURCES entry
+// is wrong or missing). Exit 2 = a lookup failed (network, rate limit) — re-run.
 
-import { readdir } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { appendFile, writeFile } from 'node:fs/promises';
+import { PIN_SOURCES } from '../dist/src/pin-sources.js';
+import { collectPins, short, day } from './pins-lib.mjs';
 
-import { parseConf } from '../dist/src/parse-conf.js';
-import { pinSourceFor, compareVersions, latestSemverTag, PIN_SOURCES, UnknownPinError } from '../dist/src/pin-sources.js';
-
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const PRESET_DIR = resolve(REPO_ROOT, 'presets');
-const TIMEOUT_MS = 20_000;
-
-async function getJson(url, headers = {}) {
-  const res = await fetch(url, {
-    headers: { accept: 'application/json', ...headers },
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
-  return res.json();
-}
-
-// The token is only for the rate limit; both endpoints are public.
-const ghHeaders = () =>
-  process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {};
-
-async function latestFor(source) {
-  switch (source.kind) {
-    case 'npm': {
-      const body = await getJson(`https://registry.npmjs.org/${source.pkg}/latest`);
-      return body.version;
-    }
-    case 'github-release': {
-      const body = await getJson(`https://api.github.com/repos/${source.repo}/releases/latest`, ghHeaders());
-      return String(body.tag_name).replace(/^v/, '');
-    }
-    case 'github-tags': {
-      const body = await getJson(
-        `https://api.github.com/repos/${source.repo}/tags?per_page=100`, ghHeaders());
-      const latest = latestSemverTag(body.map(t => t.name));
-      if (!latest) throw new Error(`${source.repo}: no version-shaped tags on the first page`);
-      return latest;
-    }
-    case 'github-branch': {
-      // Newest commit on the branch that touches the installed path.
-      const body = await getJson(
-        `https://api.github.com/repos/${source.repo}/commits?sha=${source.branch}&path=${source.path}&per_page=1`,
-        ghHeaders());
-      if (!body.length) throw new Error(`${source.repo}: no commits touch ${source.path} on ${source.branch}`);
-      return body[0].sha;
-    }
-  }
-  throw new Error(`unhandled pin source kind: ${source.kind}`);
-}
-
-// A pinned commit is current when it already contains the newest commit that
-// touched the path: compare reports the pin identical to it or ahead of it.
-async function branchCmp(source, pinned, latest) {
-  const body = await getJson(
-    `https://api.github.com/repos/${source.repo}/compare/${latest}...${pinned}`, ghHeaders());
-  return body.status === 'identical' || body.status === 'ahead' ? 0 : -1;
-}
-
-async function shippedPins() {
-  const files = (await readdir(PRESET_DIR)).filter(n => n.endsWith('.conf')).sort();
-  const pins = [];
-  for (const file of files) {
-    const { meta } = await parseConf(resolve(PRESET_DIR, file));
-    for (const pin of meta.pins) pins.push({ ...pin, preset: meta.name, file });
-  }
-  return pins;
-}
-
-const pins = await shippedPins();
-if (pins.length === 0) {
+const rows = await collectPins();
+const outIdx = process.argv.indexOf('--out');
+if (outIdx !== -1) await writeFile(process.argv[outIdx + 1], JSON.stringify(rows));
+if (rows.length === 0) {
   console.log('no @pins in any shipped preset');
   process.exit(0);
 }
 
-// An entry here that nothing pins any more is dead weight that will quietly
-// rot; flag it rather than letting the map drift away from the presets.
-const pinned = new Set(pins.map(p => p.name));
-const orphans = Object.keys(PIN_SOURCES).filter(name => !pinned.has(name));
-
-const rows = [];
-let failed = false;
-let drifted = false;
-
-for (const pin of pins) {
-  let source;
-  try {
-    source = pinSourceFor(pin.name);
-  } catch (e) {
-    if (e instanceof UnknownPinError) {
-      rows.push({ ...pin, latest: '?', state: 'NO SOURCE', detail: e.message });
-      drifted = true;
-      continue;
-    }
-    throw e;
+const note = r => {
+  switch (r.state) {
+    case 'BEHIND': return `${r.bump} to ${r.target} (${day(r.targetDate)}) → bump-pins opens a PR`;
+    case 'COOLDOWN': return r.waitingUntil ? `newer release eligible ${day(r.waitingUntil)}` : '';
+    case 'MANUAL': return `bump by hand: ${r.manual}`;
+    default: return r.detail ?? '';
   }
-
-  try {
-    const latest = await latestFor(source);
-    const cmp = source.kind === 'github-branch'
-      ? await branchCmp(source, pin.version, latest)
-      : compareVersions(pin.version, latest);
-    // A pin ahead of upstream is not good news — it means this source is not
-    // authoritative for that artifact, so its "ok" verdicts are worthless too.
-    // Both sources first tried for lombok (since dropped) failed exactly that way.
-    const state = cmp < 0 ? 'BEHIND' : cmp > 0 ? 'AHEAD?' : 'ok';
-    if (cmp !== 0) drifted = true;
-    rows.push({ ...pin, latest, state });
-  } catch (e) {
-    failed = true;
-    rows.push({ ...pin, latest: '—', state: 'LOOKUP FAILED', detail: e.message });
-  }
-}
+};
 
 const w = (s, n) => String(s).padEnd(n);
-// Commit SHAs shortened so the table keeps its columns.
-const v = s => /^[0-9a-f]{40}$/.test(String(s)) ? String(s).slice(0, 10) : s;
-console.log(`${w('PIN', 34)}${w('PINNED', 12)}${w('LATEST', 12)}${w('STATE', 15)}PRESET`);
+const lines = [`${w('PIN', 34)}${w('PINNED', 12)}${w('LATEST', 12)}${w('STATE', 15)}${w('PRESET', 24)}NOTE`];
 for (const r of rows) {
-  console.log(`${w(r.name, 34)}${w(v(r.version), 12)}${w(v(r.latest), 12)}${w(r.state, 15)}${r.preset}`);
-  if (r.detail) console.log(`  ${r.detail}`);
+  lines.push(`${w(r.name, 34)}${w(short(r.version), 12)}${w(short(r.latest), 12)}${w(r.state, 15)}${w(r.preset, 24)}${note(r)}`);
 }
 
-for (const name of orphans) {
-  console.log(`\nnote: PIN_SOURCES has an entry for "${name}", which no preset pins any more`);
+const pinned = new Set(rows.map(r => r.name));
+for (const name of Object.keys(PIN_SOURCES).filter(n => !pinned.has(n))) {
+  lines.push('', `note: PIN_SOURCES has an entry for "${name}", which no preset pins any more`);
+}
+
+const broken = rows.some(r => r.state === 'AHEAD?' || r.state === 'NO SOURCE');
+const failed = rows.some(r => r.state === 'LOOKUP FAILED');
+if (rows.some(r => r.state === 'NO SOURCE')) {
+  lines.push('', 'A "NO SOURCE" pin needs a lookup registered in src/pin-sources.ts, not a version bump.');
+}
+if (rows.some(r => r.state === 'AHEAD?')) {
+  lines.push('', 'AHEAD? = the PIN_SOURCES lookup for that pin is not authoritative; fix the source.');
+}
+if (rows.some(r => r.state === 'MANUAL')) {
+  lines.push('', 'MANUAL: bump the @pins line, the version in the body or @fetch/@archive, the',
+    'README row and the expected-pins test together. For a hash, re-verify against a second source.');
+}
+if (failed) lines.push('', 'One or more lookups failed. That is not drift — re-run.');
+
+console.log(lines.join('\n'));
+
+if (process.env.GITHUB_STEP_SUMMARY) {
+  await appendFile(process.env.GITHUB_STEP_SUMMARY, `### Pins\n\n\`\`\`\n${lines.join('\n')}\n\`\`\`\n`);
+}
+// Annotations make a MANUAL drift visible on a green run.
+if (process.env.GITHUB_ACTIONS) {
+  for (const r of rows.filter(r => r.state === 'MANUAL')) {
+    console.log(`::warning title=${r.preset}::${r.name} ${short(r.version)} → ${short(r.latest)}: bump by hand (${r.manual})`);
+  }
 }
 
 // process.exitCode rather than process.exit(): stdout is a pipe under CI, and
 // exiting outright can drop buffered writes — the table above is the whole
-// signal. Chained so nothing falls through to "all pins current".
-if (drifted) {
-  if (rows.some(r => r.state === 'NO SOURCE')) {
-    console.log('\nA "NO SOURCE" pin needs a lookup registered in src/pin-sources.ts,');
-    console.log('not a version bump.');
-  }
-  if (rows.some(r => r.state === 'BEHIND' || r.state === 'AHEAD?')) {
-    console.log('\nBump the @pins line, the version where it is used in the body or @fetch,');
-    console.log('and the README row together — a test enforces @pins and body agreeing.');
-    console.log('For an @fetch, re-verify sha256 against a second source before committing.');
-  }
-  process.exitCode = 1;
-} else if (failed) {
-  console.log('\nOne or more lookups failed. That is not drift — re-run.');
-  process.exitCode = 2;
-} else {
-  console.log('\nall pins current');
-}
+// signal.
+process.exitCode = broken ? 1 : failed ? 2 : 0;
