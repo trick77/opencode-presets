@@ -23,3 +23,35 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run build
       - run: npm test
+
+  # Auto-merges Dependabot patch and minor bumps; majors wait for a human. For
+  # grouped updates fetch-metadata reports the highest bump in the batch, so a
+  # group with any major is excluded. `--auto` waits only on checks that branch
+  # protection requires (test (22), test (24)); relax that and it merges at once.
+  # A job here, not its own workflow: a separate pull_request_target workflow
+  # starts an empty run on every non-Dependabot PR, and a startup hiccup there
+  # sends a "No jobs were run" mail.
+  # github_actions PRs excluded: pull_request runs the PR's own workflow, so a
+  # bumped action would run with this job's write token before review. Actions
+  # are pinned to major tags, so those PRs are majors and manual anyway.
+  auto-merge:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.actor == 'dependabot[bot]' &&
+      !startsWith(github.head_ref, 'dependabot/github_actions/')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v3
+
+      - name: Enable auto-merge for patch and minor updates
+        if: contains(fromJSON('["version-update:semver-patch", "version-update:semver-minor"]'), steps.meta.outputs.update-type)
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
