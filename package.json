@@ -1,6 +1,6 @@
 {
   "name": "opencode-presets",
-  "version": "0.38.2",
+  "version": "0.38.3",
   "description": "Interactive CLI that patches OpenCode config files with curated presets — MCP, permissions, plugins, skills.",
   "type": "module",
   "bin": {
