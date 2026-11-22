@@ -205,6 +205,7 @@ test('records the pinned third-party version of every preset that installs one',
   const expected: Record<string, Array<{ name: string; version: string }>> = {
     'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.84' }],
     'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '1.0.0' }],
+    'plugin-openshift-readonly-agent': [{ name: 'opencode-plugin-openshift-readonly-agent', version: '0.1.0' }],
     'plugin-planify-german': [{ name: 'opencode-planify-german', version: '1.0.1' }],
     'plugin-superpowers': [{ name: 'superpowers', version: '7.0.2' }],
     'skill-diagram-design': [{ name: 'diagram-design', version: '10cfad6a7be7f734a92d3d628e5fa344685d4f01' }],

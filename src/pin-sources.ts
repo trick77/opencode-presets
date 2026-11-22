@@ -22,6 +22,7 @@ export type PinSource = (
 export const PIN_SOURCES: Record<string, PinSource> = {
   '@playwright/mcp': { kind: 'npm', pkg: '@playwright/mcp' },
   'opencode-plugin-litellm-pricing': { kind: 'npm', pkg: 'opencode-plugin-litellm-pricing' },
+  'opencode-plugin-openshift-readonly-agent': { kind: 'npm', pkg: 'opencode-plugin-openshift-readonly-agent' },
   'opencode-planify-german': {
     kind: 'npm', pkg: 'opencode-planify-german',
     manual: 'its rules and skill @fetch files move with the plugin version',
