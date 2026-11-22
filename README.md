@@ -78,7 +78,7 @@ something outside your opencode config say so in their description.
 | `litellm-pricing` | Provider | bundle | LiteLLM proxy models in the picker with the proxy's own per-model pricing instead of `$0`: points the `litellm` provider at your proxy (prompts for base URL and API key; no models list) and adds `opencode-plugin-litellm-pricing` (pins 1.0.0, needs opencode 2), which fills in the models at runtime |
 | `plugin-superpowers` | Plugin | append | Add the Superpowers OpenCode plugin from `obra/superpowers` (brainstorming, plans, TDD, review workflows; pins tag `v7.0.2`) |
 | `openshift-readonly-agent` | Bundle | — | The agent's `oc` reads run without prompts through a read-only token: `plugin-openshift-readonly-agent`, `permissions-cluster-info` and `permissions-deny-cluster-write`, which keeps `oc`/`kubectl`/`helm` writes denied even if the plugin fails to load (`kubectl` and `helm` reads still prompt). Not a sandbox; see the plugin's limitations |
-| `plugin-openshift-readonly-agent` | Plugin | append | Adds [opencode-plugin-openshift-readonly-agent](https://github.com/trick77/opencode-plugin-openshift-readonly-agent) (pins 0.1.0, needs opencode 2): the agent's `oc`, `kubectl` and `helm` run with an OpenShift OAuth token scoped to `role:view:*` instead of your login, minted after a desktop password dialog on first use. Run `opencode service restart` after installing |
+| `plugin-openshift-readonly-agent` | Plugin | append | Adds [opencode-plugin-openshift-readonly-agent](https://github.com/trick77/opencode-plugin-openshift-readonly-agent) (pins 0.1.0, needs opencode 2): the agent's `oc`, `kubectl` and `helm` run with an OpenShift OAuth token scoped to `role:view:*` instead of your login, minted after a desktop password dialog on first use. Run `opencode service restart` after installing, then check that it is active: the agent's `oc auth can-i create configmaps` must answer `no - scopes [...] prevent this action` |
 | `agent-runaway-guard` | Agent | merge | Adds step limits to built-in agents to prevent runaway tool loops |
 | `default-agent-plan` | Agent | replace | Sets the default agent to "plan" so opencode always starts in plan mode instead of build mode |
 | `planify-german` | Bundle | — | The whole planify setup, which does nothing in parts: the `opencode-planify-german` plugin from npm (pinned to `1.0.1`, needs opencode 2), registering a `plan_render` tool that validates a plan JSON against a schema and renders a self-contained HTML file to `docs/plans/<TICKET>-<slug>.html`, and a `pr_summary` tool that writes a short task/problem/solution summary into the description of the Bitbucket Data Center PR of the current branch, opening it as a draft if none is open; the rules file that makes opencode answer in German with Swiss orthography (never the eszett character, always `ss`) and send every plan through `plan_render`; the `planify` skill documenting the plan schema; and `skill-diagram-design`, which draws the plan's diagrams. Prompts for the Bitbucket URL and an HTTP access token with repository write, stored as plugin options in `opencode.json` (token in plain text; prefer `--set-env bitbucketToken=ENV_VAR`). Rules file and skills are fetched sha256-verified. Run `opencode service restart` after installing |
@@ -303,8 +303,11 @@ Re-installing is always safe: a no-op produces no backup and no
 write.
 
 opencode 2 runs one background service for every window, so quitting the
-TUI does not reload plugins. After installing a plugin preset such as
-`plugin-superpowers`, run `opencode service restart`.
+TUI does not reload plugins. After installing a plugin preset, run
+`opencode service restart`. opencode 2.3.2 did load a newly added local or
+npm plugin without one, but version bumps, `remove`, changed plugin
+options, git-sourced plugins and older releases were not checked, and a
+plugin that fails to load only says so in the log.
 
 ## Where presets are found
 
