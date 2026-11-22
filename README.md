@@ -66,7 +66,7 @@ something outside your opencode config say so in their description.
 | `permissions-deny-destructive` | Permissions | merge | In the bundle. Hard-denies `sudo`, root/home-anchored `rm -rf`, `dd`, `mkfs`, force-push, `reset --hard` |
 | `permissions-deny-cluster-write` | Permissions | merge | In the bundle. Hard-denies mutating and exec `oc`, `kubectl`, `helm` verbs — no prompt, not bypassable by `--auto` |
 | `permissions-build-tools` | Permissions | merge | Not in the bundle. Build tools (node, npm, mvn, gradle, make, python, pip, cargo, go) |
-| `permissions-cluster-info` | Permissions | merge | Not in the bundle. Read-only `oc` (OpenShift) inspection — grants read access to whichever cluster you are logged into |
+| `permissions-cluster-info` | Permissions | merge | Not in the bundle. Read-only `oc` (OpenShift) inspection — grants read access to whichever cluster you are logged into. Printing the token (`oc whoami -t`, `oc config view --raw`) and streaming (`oc logs -f`, `oc get -w`) still ask; combined short flags such as `-cf` are not recognised |
 | `permissions-webfetch-ask` | Permissions | merge | Not in the bundle. Requires approval before opencode uses the webfetch tool |
 | `mcp-http` | MCP | replace | Add an HTTP MCP server (localhost or remote) with one custom header (prompts for id, URL, header name, header value) |
 | `mcp-http-noauth` | MCP | replace | Add an HTTP MCP server (localhost or remote) without auth headers (prompts for id, URL) |
