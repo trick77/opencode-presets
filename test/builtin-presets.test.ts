@@ -203,7 +203,7 @@ test('ships a litellm passthrough-header preset that writes a single header valu
 
 test('records the pinned third-party version of every preset that installs one', async () => {
   const expected: Record<string, Array<{ name: string; version: string }>> = {
-    'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.84' }],
+    'mcp-playwright': [{ name: '@playwright/mcp', version: '0.0.85' }],
     'plugin-litellm-pricing': [{ name: 'opencode-plugin-litellm-pricing', version: '1.0.0' }],
     'plugin-openshift-readonly-agent': [{ name: 'opencode-plugin-openshift-readonly-agent', version: '0.1.0' }],
     'plugin-planify-german': [{ name: 'opencode-planify-german', version: '1.0.1' }],
